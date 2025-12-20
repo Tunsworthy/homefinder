@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Housefinder — Listings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 text-gray-900">
+    <div class="max-w-6xl mx-auto p-4">
+      <h1 class="text-2xl font-semibold mb-4">Listings</h1>
+
+      <div class="flex items-center justify-between bg-white p-3 rounded shadow mb-4">
+        <div>
+          <span class="font-medium">Total:</span> <span id="total-count">0</span>
+          <span class="ml-4 font-medium">Available:</span> <span id="available-count">0</span>
+          <span class="ml-4 font-medium">Sold:</span> <span id="sold-count">0</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button id="filter-all" class="px-3 py-1 bg-gray-100 rounded">All</button>
+          <button id="filter-available" class="px-3 py-1 bg-green-100 rounded">Available</button>
+          <button id="filter-sold" class="px-3 py-1 bg-red-100 rounded">Sold</button>
+          <button id="sort-travel" class="px-3 py-1 bg-blue-100 rounded">Sort by travel time</button>
+          <!-- Tom/MQ filters -->
+          <button id="filter-tom-yes" class="px-3 py-1 bg-yellow-100 rounded">Tom Yes</button>
+          <button id="filter-mq-yes" class="px-3 py-1 bg-purple-100 rounded">MQ Yes</button>
+        </div>
+      </div>
+
+      <div id="listings" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      <div id="loading" class="text-center py-4 text-gray-600">Loading...</div>
+    </div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

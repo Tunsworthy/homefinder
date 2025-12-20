@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  housefinder:
+    build: .
+    container_name: housefinder
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - DATA_DIR=/data
+    volumes:
+      - ./data:/data
+    restart: 'no'
+  frontend:
+    build: ./frontend
+    container_name: housefinder_frontend
+    environment:
+      - DATA_DIR=/data
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data:ro
+    restart: 'no'

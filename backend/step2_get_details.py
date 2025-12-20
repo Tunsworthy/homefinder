@@ -84,7 +84,7 @@ def fetch_listing_html(listing_id):
         "Accept-Language": "en-US,en;q=0.9",
     }
 
-    r = requests.get(url, headers=headers, impersonate="chrome")
+    r = requests.get(url, headers=headers, impersonate="chrome",timeout=10,force_ipv4=True)
     if r.status_code == 404:
         print(f"❌ Listing {listing_id} not found")
         return None

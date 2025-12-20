@@ -74,7 +74,7 @@ def fetch_page(page_num):
         "Accept-Language": "en-US,en;q=0.9",
     }
 
-    r = requests.get(url, headers=headers, impersonate="chrome")
+    r = requests.get(url, headers=headers, impersonate="chrome",timeout=10,force_ipv4=True)
     r.raise_for_status()
     return r.text
 

@@ -1,4 +1,4 @@
-from curl_cffi import requests
+from curl_cffi import requests, CurlOpt
 from bs4 import BeautifulSoup
 import json
 import csv
@@ -84,7 +84,15 @@ def fetch_listing_html(listing_id):
         "Accept-Language": "en-US,en;q=0.9",
     }
 
-    r = requests.get(url, headers=headers, impersonate="chrome")
+    r = requests.get(
+    url,
+    headers=headers,
+    impersonate="chrome",
+    timeout=10,
+    curl_options={
+        CurlOpt.IPRESOLVE: 1  # FORCE IPv4
+    }
+    )
     if r.status_code == 404:
         print(f"❌ Listing {listing_id} not found")
         return None

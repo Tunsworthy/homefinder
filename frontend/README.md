@@ -22,3 +22,4 @@ docker run --rm -p 8080:8080 -v "$(pwd)/../data:/data" housefinder-frontend:late
 ```
 
 Open http://localhost:8080
+Added

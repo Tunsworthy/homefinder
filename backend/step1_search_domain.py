@@ -10,11 +10,13 @@ BASE_URL = (
     "https://www.domain.com.au/sale/"
     "?suburb=cheltenham-nsw-2119,epping-nsw-2121,north-epping-nsw-2121,"
     "eastwood-nsw-2122,marsfield-nsw-2122,denistone-nsw-2114,"
-    "north-ryde-nsw-2113,ryde-nsw-2112,killara-nsw-2071,"
-    "lindfield-nsw-2070,willoughby-nsw-2068,pymble-nsw-2073,"
-    "gordon-nsw-2072"
-    "&ptype=free-standing&bedrooms=4-any&price=0-2250000&excludeunderoffer=1&displaymap=1"
+    "north-ryde-nsw-2113,ryde-nsw-2112,bexley-nsw-2207,"
+    "hurstville-nsw-2220,earlwood-nsw-2206,kingsgrove-nsw-2208,"
+    "rockdale-nsw-2216,bexley-north-nsw-2207,roselands-nsw-2196,"
+    "belmore-nsw-2192,canterbury-nsw-2193"
+    "&ptype=house&bedrooms=4-any&price=0-2250000&excludeunderoffer=1"
 )
+
 
 
 DATA_DIR = os.environ.get("DATA_DIR", ".")

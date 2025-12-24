@@ -130,6 +130,10 @@ def api_listings():
         # fallback to first image if none matched
         if not img:
             img = (data.get('image_urls') or [None])[0]
+        # include latest comments (if any)
+        comments = v.get('comments', []) if isinstance(v, dict) else []
+        # sort comments by ts desc
+        comments_sorted = sorted(comments, key=lambda c: c.get('ts', 0), reverse=True)
         summaries.append({
             'id': data.get('id') or p.stem,
             'address': data.get('address'),
@@ -147,6 +151,7 @@ def api_listings():
             'tom_comment': v.get('tom_comment'),
             'mq_comment': v.get('mq_comment'),
             'route_summary': route_summary,
+            'comments': comments_sorted[:3],
         })
 
     total = len(summaries)
@@ -236,6 +241,9 @@ def api_listing(listing_id):
         img = (data.get('image_urls') or [None])[0]
     data['image'] = img
     data['google_maps_url'] = data.get('google_maps_url')
+    # include full comments list sorted newest first
+    comments = v.get('comments', []) if isinstance(v, dict) else []
+    data['comments'] = sorted(comments, key=lambda c: c.get('ts', 0), reverse=True)
     return jsonify(data)
 
 
@@ -262,6 +270,70 @@ def api_vote(listing_id):
     votes[key] = v
     save_votes(votes)
     return jsonify({'ok': True, 'tom': v.get('tom'), 'mq': v.get('mq')})
+
+
+@app.route('/api/listing/<listing_id>/comment', methods=['POST'])
+def api_comment_create(listing_id):
+    payload = request.get_json() or {}
+    person = payload.get('person')
+    text = payload.get('text')
+    if person not in ('tom', 'mq') or not isinstance(text, str) or text.strip() == '':
+        return jsonify({'error': 'invalid'}), 400
+
+    votes = load_votes()
+    key = str(listing_id)
+    v = votes.get(key, {})
+    comments = v.get('comments', [])
+    # comment id use timestamp-ms
+    import time
+    cid = str(int(time.time() * 1000))
+    comment = {'id': cid, 'person': person, 'text': text.strip(), 'ts': int(time.time())}
+    comments.append(comment)
+    v['comments'] = comments
+    votes[key] = v
+    save_votes(votes)
+    return jsonify({'ok': True, 'comment': comment})
+
+
+@app.route('/api/listing/<listing_id>/comment/<comment_id>', methods=['PUT'])
+def api_comment_update(listing_id, comment_id):
+    payload = request.get_json() or {}
+    text = payload.get('text')
+    if not isinstance(text, str):
+        return jsonify({'error': 'invalid'}), 400
+
+    votes = load_votes()
+    key = str(listing_id)
+    v = votes.get(key, {})
+    comments = v.get('comments', [])
+    found = False
+    for c in comments:
+        if str(c.get('id')) == str(comment_id):
+            c['text'] = text.strip()
+            c['edited_ts'] = int(__import__('time').time())
+            found = True
+            break
+    if not found:
+        return jsonify({'error': 'not found'}), 404
+    v['comments'] = comments
+    votes[key] = v
+    save_votes(votes)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/listing/<listing_id>/comment/<comment_id>', methods=['DELETE'])
+def api_comment_delete(listing_id, comment_id):
+    votes = load_votes()
+    key = str(listing_id)
+    v = votes.get(key, {})
+    comments = v.get('comments', [])
+    new_comments = [c for c in comments if str(c.get('id')) != str(comment_id)]
+    if len(new_comments) == len(comments):
+        return jsonify({'error': 'not found'}), 404
+    v['comments'] = new_comments
+    votes[key] = v
+    save_votes(votes)
+    return jsonify({'ok': True})
 
 
 @app.route('/static/<path:path>')

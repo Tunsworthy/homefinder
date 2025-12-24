@@ -72,8 +72,8 @@ function renderItem(item) {
   // travel link (opens google maps if available) and holds route_summary for tooltip
   const travel = travelText ? `<a href="${item.google_maps_url || item.url || '#'}" target="_blank" class="mr-2 text-sm text-blue-600 hover:underline travel-link" data-route="${(item.route_summary||'').replace(/"/g,'&quot;')}">🚆 ${travelText}</a>` : ''
   const domainLink = item.url ? `<a href="${item.url}" target="_blank" class="ml-2 text-sm text-gray-500 hover:text-gray-700">(domain)</a>` : ''
-  //const tomBadge = (item.tom===true) ? `<span class="ml-2 text-sm bg-yellow-200 px-2 py-1 rounded">✓</span>` : (item.tom===false ? `<span class="ml-2 text-sm bg-red-200 px-2 py-1 rounded">✕</span>` : `<span class="ml-2 text-sm text-gray-400 px-2 py-1 rounded">—</span>`)
-  //const mqBadge = (item.mq===true) ? `<span class="ml-2 text-sm bg-purple-200 px-2 py-1 rounded">✓</span>` : (item.mq===false ? `<span class="ml-2 text-sm bg-red-200 px-2 py-1 rounded">✕</span>` : `<span class="ml-2 text-sm text-gray-400 px-2 py-1 rounded">—</span>`)
+  const tomBadge = (item.tom===true) ? `<span class="ml-2 text-sm bg-yellow-200 px-2 py-1 rounded">✓</span>` : (item.tom===false ? `<span class="ml-2 text-sm bg-red-200 px-2 py-1 rounded">✕</span>` : `<span class="ml-2 text-sm text-gray-400 px-2 py-1 rounded">—</span>`)
+  const mqBadge = (item.mq===true) ? `<span class="ml-2 text-sm bg-purple-200 px-2 py-1 rounded">✓</span>` : (item.mq===false ? `<span class="ml-2 text-sm bg-red-200 px-2 py-1 rounded">✕</span>` : `<span class="ml-2 text-sm text-gray-400 px-2 py-1 rounded">—</span>`)
 
   // Voting UI in card (compact): Tom and MQ yes/no buttons and a hidden comment area
   // build comments html: show newest 3 comments, then view more link if more exist

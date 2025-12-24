@@ -104,7 +104,7 @@ function renderItem(item) {
       <div class="existing-comments mt-2">${commentsHtml}</div>
       ${moreLink}
       <div class="new-comment mt-2">
-        <button class="toggle-new-comment text-sm text-gray-600">--New Comment--</button>
+        <button class="toggle-new-comment inline-flex items-center px-2 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded" aria-expanded="false" title="Add a comment to this listing">💬 Add comment</button>
         <div class="new-comment-area hidden mt-2">
           <div class="mb-2">
             <select class="new-comment-who p-1 border rounded">
@@ -128,6 +128,16 @@ function renderItem(item) {
   `
 
   container.appendChild(el)
+
+  // Prevent the anchor from navigating when interacting with form controls inside the card.
+  // Clicks/focus on these should not bubble up to the <a> wrapper.
+  const interactiveNodes = el.querySelectorAll('textarea, select, .new-comment-save, .toggle-new-comment, .edit-comment, .del-comment, .existing-comments, .new-comment-area')
+  interactiveNodes.forEach(node => {
+    node.addEventListener('click', (e) => { e.stopPropagation() })
+    node.addEventListener('mousedown', (e) => { e.stopPropagation() })
+    node.addEventListener('touchstart', (e) => { e.stopPropagation() })
+    node.addEventListener('focus', (e) => { e.stopPropagation() }, true)
+  })
 
   // attach vote handlers for this card
   const voteButtons = el.querySelectorAll('.vote-btn')

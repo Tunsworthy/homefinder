@@ -14,6 +14,7 @@ const sortTravelBtn = document.getElementById('sort-travel')
 const filterTomYesBtn = document.getElementById('filter-tom-yes')
 const filterMqYesBtn = document.getElementById('filter-mq-yes')
 const excludeVotedBtn = document.getElementById('exclude-voted')
+const filterTravelSelect = document.getElementById('filter-travel-max')
 
 // currentFilter and currentSort will be loaded from localStorage below
 // persistent filters stored in localStorage
@@ -24,6 +25,7 @@ let currentMqFilter = stored.mq || 'any'
 let currentFilter = stored.status || 'all'
 let currentSort = stored.sort || 'none'
 let currentExcludeVoted = stored.exclude_voted || false
+let currentTravelMax = stored.travel_max || 'any' // minutes or 'any'
 
 // simple html escaper for comment text
 function escapeHtml(str){
@@ -38,7 +40,9 @@ async function loadMore() {
   loading = true
   loadingEl.style.display = 'block'
   try {
-    const res = await fetch(`/api/listings?offset=${offset}&limit=${limit}&status=${currentFilter}&sort=${currentSort}&tom=${currentTomFilter}&mq=${currentMqFilter}&exclude_voted=${currentExcludeVoted}`)
+    const qs = new URLSearchParams({offset, limit, status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted: currentExcludeVoted})
+    if (currentTravelMax && currentTravelMax !== 'any') qs.set('travel_max', String(currentTravelMax))
+    const res = await fetch(`/api/listings?${qs.toString()}`)
     const data = await res.json()
     const items = data.listings || []
     // update totals if provided
@@ -290,8 +294,25 @@ function resetAndLoad() {
   loadMore()
 }
 
+// populate travel select with 5-minute increments up to 120
+function populateTravelSelect(){
+  if (!filterTravelSelect) return
+  filterTravelSelect.innerHTML = '<option value="any">Any</option>'
+  for (let m = 5; m <= 120; m += 5){
+    const opt = document.createElement('option')
+    opt.value = String(m)
+    opt.textContent = `${m} min`
+    filterTravelSelect.appendChild(opt)
+  }
+  filterTravelSelect.value = currentTravelMax || 'any'
+  filterTravelSelect.addEventListener('change', () => {
+    currentTravelMax = filterTravelSelect.value
+    saveFilters(); resetAndLoad()
+  })
+}
+
 function saveFilters(){
-  const obj = {status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted: currentExcludeVoted}
+  const obj = {status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted: currentExcludeVoted, travel_max: currentTravelMax}
   try{ localStorage.setItem('hf_filters', JSON.stringify(obj)) }catch(e){}
 }
 
@@ -326,4 +347,5 @@ function applyStoredToUI(){
 }
 
 applyStoredToUI()
+populateTravelSelect()
 resetAndLoad()

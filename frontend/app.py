@@ -181,6 +181,16 @@ def api_listings():
     if exclude_voted:
         summaries = [s for s in summaries if s.get('tom') is None and s.get('mq') is None]
 
+    # filter by maximum travel time in minutes (optional)
+    travel_max = request.args.get('travel_max')
+    try:
+        if travel_max is not None and travel_max != 'any':
+            tm = int(travel_max)
+            if tm >= 0:
+                summaries = [s for s in summaries if (s.get('travel_duration_seconds') is not None and s.get('travel_duration_seconds') <= tm * 60)]
+    except Exception:
+        pass
+
     # apply sorting
     if sort == 'travel':
         # None travel times should be placed at end

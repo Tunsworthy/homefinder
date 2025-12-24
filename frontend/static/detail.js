@@ -29,6 +29,13 @@ async function loadDetail() {
           <div class="text-sm text-gray-600">Current: ${tomState}</div>
         </div>
         <div class="mt-2">
+          <div class="mb-2">
+            <label class="text-sm mr-2">Save comment as:</label>
+            <select id="tom-comment-who" class="p-1 border rounded">
+              <option value="tom" selected>Tom</option>
+              <option value="mq">MQ</option>
+            </select>
+          </div>
           <textarea id="tom-comment" placeholder="Why Tom voted yes/no" class="w-full p-2 border rounded">${data.tom_comment||''}</textarea>
           <div class="mt-2"><button id="tom-save-comment" class="px-3 py-1 bg-blue-200 rounded">Save Tom comment</button></div>
         </div>
@@ -44,6 +51,13 @@ async function loadDetail() {
           <div class="text-sm text-gray-600">Current: ${mqState}</div>
         </div>
         <div class="mt-2">
+          <div class="mb-2">
+            <label class="text-sm mr-2">Save comment as:</label>
+            <select id="mq-comment-who" class="p-1 border rounded">
+              <option value="mq" selected>MQ</option>
+              <option value="tom">Tom</option>
+            </select>
+          </div>
           <textarea id="mq-comment" placeholder="Why MQ voted yes/no" class="w-full p-2 border rounded">${data.mq_comment||''}</textarea>
           <div class="mt-2"><button id="mq-save-comment" class="px-3 py-1 bg-blue-200 rounded">Save MQ comment</button></div>
         </div>
@@ -73,11 +87,15 @@ async function loadDetail() {
 
     document.getElementById('tom-save-comment').addEventListener('click', () => {
       const txt = document.getElementById('tom-comment').value
-      postVote({tom_comment: txt})
+      const who = document.getElementById('tom-comment-who') ? document.getElementById('tom-comment-who').value : 'tom'
+      const payload = who === 'tom' ? {tom_comment: txt} : {mq_comment: txt}
+      postVote(payload)
     })
     document.getElementById('mq-save-comment').addEventListener('click', () => {
       const txt = document.getElementById('mq-comment').value
-      postVote({mq_comment: txt})
+      const who = document.getElementById('mq-comment-who') ? document.getElementById('mq-comment-who').value : 'mq'
+      const payload = who === 'mq' ? {mq_comment: txt} : {tom_comment: txt}
+      postVote(payload)
     })
 
     async function postVote(payload) {

@@ -128,9 +128,21 @@ function renderItem(item) {
   `
 
   container.appendChild(el)
-
   // Prevent the anchor from navigating when interacting with form controls inside the card.
-  // Clicks/focus on these should not bubble up to the <a> wrapper.
+  // If a click/key event originates inside a comments area, stop the anchor default.
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('.comments-block') || e.target.closest('.new-comment-area') || e.target.closest('.new-comment-input') || e.target.closest('.new-comment-save') || e.target.closest('.toggle-new-comment') || e.target.closest('.existing-comments') || e.target.closest('.comment-item') || e.target.closest('.edit-comment') || e.target.closest('.del-comment')) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  })
+  el.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.closest && e.target.closest('.comments-block')) {
+      e.preventDefault(); e.stopPropagation()
+    }
+  })
+
+  // Also attach defensive stopPropagation to interactive controls (older browsers / odd event flows)
   const interactiveNodes = el.querySelectorAll('textarea, select, .new-comment-save, .toggle-new-comment, .edit-comment, .del-comment, .existing-comments, .new-comment-area')
   interactiveNodes.forEach(node => {
     node.addEventListener('click', (e) => { e.stopPropagation() })
@@ -167,7 +179,18 @@ function renderItem(item) {
   // new-comment toggle
   const toggleBtn = el.querySelector('.toggle-new-comment')
   if (toggleBtn) {
-    toggleBtn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); const area = el.querySelector('.new-comment-area'); if(area) area.classList.toggle('hidden') })
+    toggleBtn.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const area = el.querySelector('.new-comment-area')
+      if (!area) return
+      area.classList.toggle('hidden')
+      const expanded = !area.classList.contains('hidden')
+      try { toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false') } catch(e){}
+      if (expanded) {
+        const ta = el.querySelector('.new-comment-input')
+        if (ta) { ta.focus(); }
+      }
+    })
   }
 
   // new-comment save buttons

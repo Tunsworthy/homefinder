@@ -13,22 +13,24 @@ const filterSoldBtn = document.getElementById('filter-sold')
 const sortTravelBtn = document.getElementById('sort-travel')
 const filterTomYesBtn = document.getElementById('filter-tom-yes')
 const filterMqYesBtn = document.getElementById('filter-mq-yes')
+const excludeVotedBtn = document.getElementById('exclude-voted')
 
 // currentFilter and currentSort will be loaded from localStorage below
 // persistent filters stored in localStorage
 let stored = {}
 try { stored = JSON.parse(localStorage.getItem('hf_filters') || '{}') } catch(e) { stored = {} }
-let currentTomFilter = stored.tom || 'any' // any, yes
+let currentTomFilter = stored.tom || 'any' // any, yes, no
 let currentMqFilter = stored.mq || 'any'
 let currentFilter = stored.status || 'all'
 let currentSort = stored.sort || 'none'
+let currentExcludeVoted = stored.exclude_voted || false
 
 async function loadMore() {
   if (loading) return
   loading = true
   loadingEl.style.display = 'block'
   try {
-    const res = await fetch(`/api/listings?offset=${offset}&limit=${limit}&status=${currentFilter}&sort=${currentSort}&tom=${currentTomFilter}&mq=${currentMqFilter}`)
+    const res = await fetch(`/api/listings?offset=${offset}&limit=${limit}&status=${currentFilter}&sort=${currentSort}&tom=${currentTomFilter}&mq=${currentMqFilter}&exclude_voted=${currentExcludeVoted}`)
     const data = await res.json()
     const items = data.listings || []
     // update totals if provided
@@ -88,7 +90,7 @@ function resetAndLoad() {
 }
 
 function saveFilters(){
-  const obj = {status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter}
+  const obj = {status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted: currentExcludeVoted}
   try{ localStorage.setItem('hf_filters', JSON.stringify(obj)) }catch(e){}
 }
 
@@ -96,15 +98,30 @@ filterAllBtn.addEventListener('click', () => { currentFilter = 'all'; saveFilter
 filterAvailableBtn.addEventListener('click', () => { currentFilter = 'available'; saveFilters(); resetAndLoad() })
 filterSoldBtn.addEventListener('click', () => { currentFilter = 'sold'; saveFilters(); resetAndLoad() })
 sortTravelBtn.addEventListener('click', () => { currentSort = currentSort === 'travel' ? 'none' : 'travel'; saveFilters(); resetAndLoad(); sortTravelBtn.textContent = currentSort === 'travel' ? 'Sort: travel (on)' : 'Sort by travel time' })
-filterTomYesBtn.addEventListener('click', () => { currentTomFilter = currentTomFilter === 'yes' ? 'any' : 'yes'; saveFilters(); resetAndLoad(); filterTomYesBtn.textContent = currentTomFilter === 'yes' ? 'Tom:Yes (on)' : 'Tom Yes' })
-filterMqYesBtn.addEventListener('click', () => { currentMqFilter = currentMqFilter === 'yes' ? 'any' : 'yes'; saveFilters(); resetAndLoad(); filterMqYesBtn.textContent = currentMqFilter === 'yes' ? 'MQ:Yes (on)' : 'MQ Yes' })
+// cycle tri-state: any -> yes -> no -> any
+filterTomYesBtn.addEventListener('click', () => {
+  currentTomFilter = currentTomFilter === 'any' ? 'yes' : (currentTomFilter === 'yes' ? 'no' : 'any')
+  saveFilters(); resetAndLoad();
+  filterTomYesBtn.textContent = currentTomFilter === 'yes' ? 'Tom:Yes (on)' : (currentTomFilter === 'no' ? 'Tom:No (on)' : 'Tom')
+})
+filterMqYesBtn.addEventListener('click', () => {
+  currentMqFilter = currentMqFilter === 'any' ? 'yes' : (currentMqFilter === 'yes' ? 'no' : 'any')
+  saveFilters(); resetAndLoad();
+  filterMqYesBtn.textContent = currentMqFilter === 'yes' ? 'MQ:Yes (on)' : (currentMqFilter === 'no' ? 'MQ:No (on)' : 'MQ')
+})
+excludeVotedBtn.addEventListener('click', () => {
+  currentExcludeVoted = !currentExcludeVoted
+  saveFilters(); resetAndLoad();
+  excludeVotedBtn.textContent = currentExcludeVoted ? 'Exclude voted (on)' : 'Exclude voted'
+})
 
 // initialise UI from stored filters
 function applyStoredToUI(){
   if(currentSort === 'travel') sortTravelBtn.textContent = 'Sort: travel (on)'
   else sortTravelBtn.textContent = 'Sort by travel time'
-  filterTomYesBtn.textContent = currentTomFilter === 'yes' ? 'Tom:Yes (on)' : 'Tom Yes'
-  filterMqYesBtn.textContent = currentMqFilter === 'yes' ? 'MQ:Yes (on)' : 'MQ Yes'
+  filterTomYesBtn.textContent = currentTomFilter === 'yes' ? 'Tom:Yes (on)' : (currentTomFilter === 'no' ? 'Tom:No (on)' : 'Tom')
+  filterMqYesBtn.textContent = currentMqFilter === 'yes' ? 'MQ:Yes (on)' : (currentMqFilter === 'no' ? 'MQ:No (on)' : 'MQ')
+  excludeVotedBtn.textContent = currentExcludeVoted ? 'Exclude voted (on)' : 'Exclude voted'
 }
 
 applyStoredToUI()

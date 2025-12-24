@@ -144,6 +144,8 @@ def api_listings():
             'google_maps_url': data.get('google_maps_url'),
             'tom': tom_vote,
             'mq': mq_vote,
+            'tom_comment': v.get('tom_comment'),
+            'mq_comment': v.get('mq_comment'),
             'route_summary': route_summary,
         })
 
@@ -157,15 +159,22 @@ def api_listings():
     elif status_filter == 'available':
         summaries = [s for s in summaries if str(s.get('status')).lower() != 'sold']
 
-    # apply Tom/MQ filters
+    # apply Tom/MQ filters (tri-state: any, yes, no)
     tom_filter = request.args.get('tom', 'any')  # any, yes, no
     mq_filter = request.args.get('mq', 'any')
-    if tom_filter in ('yes', 'no'):
-        wanted = tom_filter == 'yes'
-        summaries = [s for s in summaries if (s.get('tom') is True) == wanted]
-    if mq_filter in ('yes', 'no'):
-        wanted = mq_filter == 'yes'
-        summaries = [s for s in summaries if (s.get('mq') is True) == wanted]
+    if tom_filter == 'yes':
+        summaries = [s for s in summaries if s.get('tom') is True]
+    elif tom_filter == 'no':
+        summaries = [s for s in summaries if s.get('tom') is False]
+    if mq_filter == 'yes':
+        summaries = [s for s in summaries if s.get('mq') is True]
+    elif mq_filter == 'no':
+        summaries = [s for s in summaries if s.get('mq') is False]
+
+    # optionally exclude any listings that have any vote
+    exclude_voted = request.args.get('exclude_voted', 'false').lower() in ('1', 'true', 'yes')
+    if exclude_voted:
+        summaries = [s for s in summaries if s.get('tom') is None and s.get('mq') is None]
 
     # apply sorting
     if sort == 'travel':
@@ -210,6 +219,8 @@ def api_listing(listing_id):
     v = votes.get(str(data.get('id') or path.stem), {})
     data['tom'] = v.get('tom')
     data['mq'] = v.get('mq')
+    data['tom_comment'] = v.get('tom_comment')
+    data['mq_comment'] = v.get('mq_comment')
     # route summary
     data['route_summary'] = extract_route_summary_from_listing(data)
     # pick non-agent image
@@ -233,6 +244,8 @@ def api_vote(listing_id):
     payload = request.get_json() or {}
     tom = payload.get('tom') if 'tom' in payload else None
     mq = payload.get('mq') if 'mq' in payload else None
+    tom_comment = payload.get('tom_comment') if 'tom_comment' in payload else None
+    mq_comment = payload.get('mq_comment') if 'mq_comment' in payload else None
 
     votes = load_votes()
     key = str(listing_id)
@@ -242,6 +255,10 @@ def api_vote(listing_id):
         v['tom'] = True if tom is True else (False if tom is False else None)
     if mq is not None:
         v['mq'] = True if mq is True else (False if mq is False else None)
+    if tom_comment is not None:
+        v['tom_comment'] = tom_comment
+    if mq_comment is not None:
+        v['mq_comment'] = mq_comment
     votes[key] = v
     save_votes(votes)
     return jsonify({'ok': True, 'tom': v.get('tom'), 'mq': v.get('mq')})

@@ -61,8 +61,7 @@ async function loadMore() {
 }
 
 function renderItem(item) {
-  const el = document.createElement('a')
-  el.href = `/listing/${item.id}`
+  const el = document.createElement('div')
   el.className = 'block bg-white rounded shadow p-4 hover:shadow-md relative'
 
   const img = item.image ? `<img src="${item.image}" class="w-full h-48 object-cover rounded mb-3">` : ''
@@ -71,9 +70,7 @@ function renderItem(item) {
   const travelText = item.travel_duration_text || ''
   // travel link (opens google maps if available) and holds route_summary for tooltip
   const travel = travelText ? `<a href="${item.google_maps_url || item.url || '#'}" target="_blank" class="mr-2 text-sm text-blue-600 hover:underline travel-link" data-route="${(item.route_summary||'').replace(/"/g,'&quot;')}">🚆 ${travelText}</a>` : ''
-  const domainLink = item.url ? `<a href="${item.url}" target="_blank" class="ml-2 text-sm text-gray-500 hover:text-gray-700">(domain)</a>` : ''
-  const tomBadge = (item.tom===true) ? `<span class="ml-2 text-sm bg-yellow-200 px-2 py-1 rounded">✓</span>` : (item.tom===false ? `<span class="ml-2 text-sm bg-red-200 px-2 py-1 rounded">✕</span>` : `<span class="ml-2 text-sm text-gray-400 px-2 py-1 rounded">—</span>`)
-  const mqBadge = (item.mq===true) ? `<span class="ml-2 text-sm bg-purple-200 px-2 py-1 rounded">✓</span>` : (item.mq===false ? `<span class="ml-2 text-sm bg-red-200 px-2 py-1 rounded">✕</span>` : `<span class="ml-2 text-sm text-gray-400 px-2 py-1 rounded">—</span>`)
+  const domainLink = item.url ? `<a href="${item.url}" target="_blank" class="ml-2 text-sm text-gray-500 hover:text-gray-700">🏠 (domain)</a>` : ''
 
   // Voting UI in card (compact): Tom and MQ yes/no buttons and a hidden comment area
   // build comments html: show newest 3 comments, then view more link if more exist
@@ -91,13 +88,13 @@ function renderItem(item) {
   const moreLink = (item.comments && item.comments.length > 3) ? `<div class="mt-1"><a href="/listing/${item.id}" class="text-sm text-blue-600">View More</a></div>` : ''
 
   const voteUi = `
-    <div class="mt-2 flex items-center space-x-2">
+    <div class="mt-2 flex items-center space-x-3">
       <div class="text-sm font-medium">Tom</div>
-      <button data-id="${item.id}" data-person="tom" data-val="true" class="vote-btn tom-yes px-2 py-1 rounded ${item.tom===true? 'bg-green-200' : 'bg-gray-100'}">✓</button>
-      <button data-id="${item.id}" data-person="tom" data-val="false" class="vote-btn tom-no px-2 py-1 rounded ${item.tom===false? 'bg-red-200' : 'bg-gray-100'}">✕</button>
-      <div class="text-sm ml-2">MQ</div>
-      <button data-id="${item.id}" data-person="mq" data-val="true" class="vote-btn mq-yes px-2 py-1 rounded ${item.mq===true? 'bg-green-200' : 'bg-gray-100'}">✓</button>
-      <button data-id="${item.id}" data-person="mq" data-val="false" class="vote-btn mq-no px-2 py-1 rounded ${item.mq===false? 'bg-red-200' : 'bg-gray-100'}">✕</button>
+      <button data-id="${item.id}" data-person="tom" data-val="true" aria-pressed="${item.tom===true}" class="vote-btn tom-yes px-3 py-1 rounded-full ${item.tom===true? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}">Yes</button>
+      <button data-id="${item.id}" data-person="tom" data-val="false" aria-pressed="${item.tom===false}" class="vote-btn tom-no px-3 py-1 rounded-full ${item.tom===false? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-800'}">No</button>
+      <div class="text-sm ml-3">MQ</div>
+      <button data-id="${item.id}" data-person="mq" data-val="true" aria-pressed="${item.mq===true}" class="vote-btn mq-yes px-3 py-1 rounded-full ${item.mq===true? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}">Yes</button>
+      <button data-id="${item.id}" data-person="mq" data-val="false" aria-pressed="${item.mq===false}" class="vote-btn mq-no px-3 py-1 rounded-full ${item.mq===false? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-800'}">No</button>
     </div>
     <div class="comments-block mt-2" data-id="${item.id}">
       <div class="font-medium text-sm">Comments</div>
@@ -121,10 +118,14 @@ function renderItem(item) {
 
   el.innerHTML = `
     ${img}
-    <div class="text-sm text-gray-600 mb-1">${item.address || ''} ${tomBadge} ${mqBadge} ${domainLink}</div>
+    <div class="text-sm text-gray-600 mb-1">${item.address || ''} ${domainLink}</div>
     <div class="flex items-center text-sm text-gray-700 mb-2">${beds}${baths}${travel}</div>
     <div class="text-sm text-gray-500">${item.price || ''}</div>
     ${voteUi}
+    <div class="mt-3">
+      <a href="/listing/${item.id}" class="inline-block mr-3 px-3 py-1 bg-blue-600 text-white rounded">More details</a>
+      ${domainLink}
+    </div>
   `
 
   container.appendChild(el)
@@ -145,8 +146,8 @@ function renderItem(item) {
   // Also attach defensive stopPropagation to interactive controls (older browsers / odd event flows)
   const interactiveNodes = el.querySelectorAll('textarea, select, .new-comment-save, .toggle-new-comment, .edit-comment, .del-comment, .existing-comments, .new-comment-area')
   interactiveNodes.forEach(node => {
-    node.addEventListener('click', (e) => { e.stopPropagation() })
-    node.addEventListener('mousedown', (e) => { e.stopPropagation() })
+    node.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation() })
+    node.addEventListener('mousedown', (e) => { /* allow default focus behavior but stop bubbling */ e.stopPropagation() })
     node.addEventListener('touchstart', (e) => { e.stopPropagation() })
     node.addEventListener('focus', (e) => { e.stopPropagation() }, true)
   })

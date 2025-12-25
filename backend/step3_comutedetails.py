@@ -90,14 +90,77 @@ def get_travel_time_for_origin(origin_address):
         return None
 
     try:
-        leg = data["routes"][0]["legs"][0]
+        routes = data.get("routes", [])
+        if not routes:
+            return None
+
+        route_summaries = []
+        for r in routes:
+            # Sum leg durations (usually one leg for point-to-point)
+            legs = r.get("legs", [])
+            total_seconds = 0
+            total_text = []
+            # collect walking info (distance in meters and duration seconds)
+            walking_seconds = 0
+            walking_distance_m = 0
+            # we'll consider walking before the first transit step as the 'access walk'
+            access_walking_seconds = 0
+            access_walking_distance = 0
+            found_transit = False
+
+            for leg in legs:
+                dur = leg.get("duration", {}).get("value", 0)
+                total_seconds += dur
+                if leg.get("duration", {}).get("text"):
+                    total_text.append(leg["duration"]["text"])
+
+                # steps can show segments with travel_mode (WALKING, TRANSIT, DRIVING)
+                for step in leg.get("steps", []):
+                    mode = step.get("travel_mode")
+                    step_dur = step.get("duration", {}).get("value", 0)
+                    step_dist = step.get("distance", {}).get("value", 0)
+                    if mode == "WALKING":
+                        walking_seconds += step_dur
+                        walking_distance_m += step_dist
+                        if not found_transit:
+                            access_walking_seconds += step_dur
+                            access_walking_distance += step_dist
+                    elif mode == "TRANSIT":
+                        found_transit = True
+
+            # estimate a drive-to-station alternative if access walking is long
+            drive_alt_seconds = None
+            DRIVE_SPEED_KMH = 40
+            if access_walking_seconds and access_walking_seconds >= 300:  # >=5 minutes
+                # estimate driving time for access distance
+                speed_mps = DRIVE_SPEED_KMH * 1000.0 / 3600.0
+                est_drive_seconds = int(access_walking_distance / speed_mps) if speed_mps > 0 else None
+                if est_drive_seconds is not None:
+                    # substitute only the access walking portion with driving estimate
+                    drive_alt_seconds = total_seconds - access_walking_seconds + est_drive_seconds
+
+            route_summaries.append({
+                "summary_text": r.get("summary", ""),
+                "duration_seconds": int(total_seconds),
+                "duration_text": ", ".join(total_text) if total_text else None,
+                "walking_seconds": int(walking_seconds),
+                "walking_distance_m": int(walking_distance_m),
+                "access_walking_seconds": int(access_walking_seconds),
+                "access_walking_distance": int(access_walking_distance),
+                "drive_alt_seconds": int(drive_alt_seconds) if drive_alt_seconds is not None else None,
+            })
+
+        # pick best route by duration_seconds
+        best = min(route_summaries, key=lambda x: x.get("duration_seconds", 10 ** 9))
+
         return {
             "summary": {
-                "duration_text": leg["duration"]["text"],
-                "duration_seconds": leg["duration"]["value"],
+                "duration_text": best.get("duration_text") or (str(int(best.get("duration_seconds",0)//60)) + " mins"),
+                "duration_seconds": int(best.get("duration_seconds", 0)),
             },
             "arrival_timestamp": arrival_ts,
             "raw_response": data,
+            "routes": route_summaries,
         }
     except Exception as e:
         print("  [ERROR] Parsing Google response for", origin_address, "-", e)

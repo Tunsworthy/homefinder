@@ -25,7 +25,15 @@
             <!-- Placeholder for future UI additions -->
             <button id="filter-tom-yes" class="px-3 py-1 bg-yellow-100 rounded">Tom</button>
             <button id="filter-mq-yes" class="px-3 py-1 bg-purple-100 rounded">MQ</button>
-          <button id="exclude-voted" class="px-3 py-1 bg-gray-100 rounded">Exclude voted</button>
+          <div>
+            <label for="exclude-voted-select" class="sr-only">Exclude voted</label>
+            <select id="exclude-voted-select" class="p-1 border rounded bg-white text-sm">
+              <option value="none">Show all</option>
+              <option value="tom">Exclude voted (Tom)</option>
+              <option value="mq">Exclude voted (MQ)</option>
+              <option value="either">Exclude voted (Either)</option>
+            </select>
+          </div>
           <div class="ml-2 flex items-center">
             <label for="filter-travel-max" class="text-sm mr-2">Max travel:</label>
             <select id="filter-travel-max" class="p-1 border rounded bg-white text-sm">

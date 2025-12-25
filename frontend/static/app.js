@@ -13,7 +13,7 @@ const filterSoldBtn = document.getElementById('filter-sold')
 const sortTravelBtn = document.getElementById('sort-travel')
 const filterTomYesBtn = document.getElementById('filter-tom-yes')
 const filterMqYesBtn = document.getElementById('filter-mq-yes')
-const excludeVotedBtn = document.getElementById('exclude-voted')
+const filterExcludeSelect = document.getElementById('exclude-voted-select')
 const filterTravelSelect = document.getElementById('filter-travel-max')
 
 // currentFilter and currentSort will be loaded from localStorage below
@@ -24,7 +24,7 @@ let currentTomFilter = stored.tom || 'any' // any, yes, no
 let currentMqFilter = stored.mq || 'any'
 let currentFilter = stored.status || 'all'
 let currentSort = stored.sort || 'none'
-let currentExcludeVoted = stored.exclude_voted || false
+let currentExcludeMode = stored.exclude_voted_mode || 'none'
 let currentTravelMax = stored.travel_max || 'any' // minutes or 'any'
 
 // simple html escaper for comment text
@@ -40,7 +40,7 @@ async function loadMore() {
   loading = true
   loadingEl.style.display = 'block'
   try {
-    const qs = new URLSearchParams({offset, limit, status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted: currentExcludeVoted})
+    const qs = new URLSearchParams({offset, limit, status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode})
     if (currentTravelMax && currentTravelMax !== 'any') qs.set('travel_max', String(currentTravelMax))
     const res = await fetch(`/api/listings?${qs.toString()}`)
     const data = await res.json()
@@ -325,7 +325,7 @@ function populateTravelSelect(){
 }
 
 function saveFilters(){
-  const obj = {status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted: currentExcludeVoted, travel_max: currentTravelMax}
+  const obj = {status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode, travel_max: currentTravelMax}
   try{ localStorage.setItem('hf_filters', JSON.stringify(obj)) }catch(e){}
 }
 
@@ -344,11 +344,13 @@ filterMqYesBtn.addEventListener('click', () => {
   saveFilters(); resetAndLoad();
   filterMqYesBtn.textContent = currentMqFilter === 'yes' ? 'MQ:Yes (on)' : (currentMqFilter === 'no' ? 'MQ:No (on)' : 'MQ')
 })
-excludeVotedBtn.addEventListener('click', () => {
-  currentExcludeVoted = !currentExcludeVoted
-  saveFilters(); resetAndLoad();
-  excludeVotedBtn.textContent = currentExcludeVoted ? 'Exclude voted (on)' : 'Exclude voted'
-})
+if (filterExcludeSelect) {
+  filterExcludeSelect.value = currentExcludeMode || 'none'
+  filterExcludeSelect.addEventListener('change', () => {
+    currentExcludeMode = filterExcludeSelect.value
+    saveFilters(); resetAndLoad()
+  })
+}
 
 // initialise UI from stored filters
 function applyStoredToUI(){

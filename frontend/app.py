@@ -176,9 +176,14 @@ def api_listings():
     elif mq_filter == 'no':
         summaries = [s for s in summaries if s.get('mq') is False]
 
-    # optionally exclude any listings that have any vote
-    exclude_voted = request.args.get('exclude_voted', 'false').lower() in ('1', 'true', 'yes')
-    if exclude_voted:
+    # optionally exclude listings based on who voted: 'none', 'tom', 'mq', 'either'
+    exclude_mode = request.args.get('exclude_voted_mode', 'none')
+    if exclude_mode == 'tom':
+        summaries = [s for s in summaries if s.get('tom') is None]
+    elif exclude_mode == 'mq':
+        summaries = [s for s in summaries if s.get('mq') is None]
+    elif exclude_mode == 'either':
+        # exclude listings where either Tom or MQ has voted => keep only those with no votes
         summaries = [s for s in summaries if s.get('tom') is None and s.get('mq') is None]
 
     # filter by maximum travel time in minutes (optional)

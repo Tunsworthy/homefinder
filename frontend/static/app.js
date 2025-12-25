@@ -85,7 +85,7 @@ function renderItem(item) {
   } else {
     for (let c of comments.slice(0,3)) {
       const who = c.person === 'tom' ? 'Tom' : 'MQ'
-      const snippet = `<div class="comment-item text-sm border rounded p-2 mb-1" data-cid="${c.id}"><strong>${who}:</strong> <span class="comment-text">${escapeHtml(c.text)}</span> <span class="ml-2 text-xs text-gray-400">${new Date(c.ts*1000).toLocaleString()}</span> <button class="edit-comment text-xs ml-2">edit</button> <button class="del-comment text-xs ml-1 text-red-500">del</button></div>`
+      const snippet = `<div class="comment-item text-sm border rounded p-2 mb-1 flex items-start justify-between" data-cid="${c.id}"><div><strong>${who}:</strong> <span class="comment-text">${escapeHtml(c.text)}</span> <div class="text-xs text-gray-400">${new Date(c.ts*1000).toLocaleString()}</div></div><div class="ml-3 flex items-center"><button class="edit-comment text-xs ml-2 px-2 py-1" title="Edit">✏️</button><button class="del-comment text-xs ml-1 px-2 py-1 text-red-500" title="Delete">🗑️</button></div></div>`
       commentsHtml += snippet
     }
   }
@@ -136,7 +136,10 @@ function renderItem(item) {
     }
   })
   el.addEventListener('keydown', (e) => {
-    if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.closest && e.target.closest('.comments-block')) {
+    // only intercept Enter/Space when not typing in an input/textarea/select
+    const tgt = e.target
+    const isEditable = tgt && (tgt.tagName === 'TEXTAREA' || tgt.tagName === 'INPUT' || tgt.tagName === 'SELECT' || tgt.isContentEditable || (tgt.closest && tgt.closest('.new-comment-input')))
+    if (!isEditable && (e.key === 'Enter' || e.key === ' ' ) && tgt && tgt.closest && tgt.closest('.comments-block')) {
       e.preventDefault(); e.stopPropagation()
     }
   })
@@ -144,7 +147,7 @@ function renderItem(item) {
   // Also attach defensive stopPropagation to interactive controls (older browsers / odd event flows)
   const interactiveNodes = el.querySelectorAll('textarea, select, .new-comment-save, .toggle-new-comment, .edit-comment, .del-comment, .existing-comments, .new-comment-area')
   interactiveNodes.forEach(node => {
-    node.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation() })
+    node.addEventListener('click', (e) => { e.stopPropagation() })
     node.addEventListener('mousedown', (e) => { /* allow default focus behavior but stop bubbling */ e.stopPropagation() })
     node.addEventListener('touchstart', (e) => { e.stopPropagation() })
     node.addEventListener('focus', (e) => { e.stopPropagation() }, true)
@@ -165,9 +168,25 @@ function renderItem(item) {
       if (newArea) newArea.classList.remove('hidden')
       // POST vote
       try {
-        await fetch(`/api/listing/${id}/vote`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({[person]: val})})
-        // update badge visuals quickly
-        resetAndLoad() // refresh listing view
+        const resp = await fetch(`/api/listing/${id}/vote`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({[person]: val})})
+        const j = await resp.json().catch(()=>({}))
+        // update buttons in-place instead of refreshing the whole view
+        const tomVal = (typeof j.tom !== 'undefined') ? j.tom : null
+        const mqVal = (typeof j.mq !== 'undefined') ? j.mq : null
+        const tomYes = card.querySelector('.tom-yes')
+        const tomNo = card.querySelector('.tom-no')
+        const mqYes = card.querySelector('.mq-yes')
+        const mqNo = card.querySelector('.mq-no')
+        if (tomYes && tomNo) {
+          if (tomVal === true) { tomYes.classList.add('bg-green-600','text-white'); tomNo.classList.remove('bg-red-600','text-white'); tomYes.setAttribute('aria-pressed','true'); tomNo.setAttribute('aria-pressed','false') }
+          else if (tomVal === false) { tomNo.classList.add('bg-red-600','text-white'); tomYes.classList.remove('bg-green-600','text-white'); tomNo.setAttribute('aria-pressed','true'); tomYes.setAttribute('aria-pressed','false') }
+          else { tomYes.classList.remove('bg-green-600','text-white'); tomNo.classList.remove('bg-red-600','text-white'); tomYes.setAttribute('aria-pressed','false'); tomNo.setAttribute('aria-pressed','false') }
+        }
+        if (mqYes && mqNo) {
+          if (mqVal === true) { mqYes.classList.add('bg-green-600','text-white'); mqNo.classList.remove('bg-red-600','text-white'); mqYes.setAttribute('aria-pressed','true'); mqNo.setAttribute('aria-pressed','false') }
+          else if (mqVal === false) { mqNo.classList.add('bg-red-600','text-white'); mqYes.classList.remove('bg-green-600','text-white'); mqNo.setAttribute('aria-pressed','true'); mqYes.setAttribute('aria-pressed','false') }
+          else { mqYes.classList.remove('bg-green-600','text-white'); mqNo.classList.remove('bg-red-600','text-white'); mqYes.setAttribute('aria-pressed','false'); mqNo.setAttribute('aria-pressed','false') }
+        }
       } catch (e) {
         console.error('vote failed', e)
       }
@@ -343,3 +362,4 @@ function applyStoredToUI(){
 applyStoredToUI()
 populateTravelSelect()
 resetAndLoad()
+//update

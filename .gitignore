@@ -1,6 +1,7 @@
 # Ignore generated listing ids and listing data folders
 # Any listing_ids.json file
 **/listing_ids.json
+**/travel_times.csv
 
 # Any listings/ directory (JSON files)
 **/listings/

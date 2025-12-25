@@ -1,0 +1,24 @@
+{
+  "id": "2020221582",
+  "address": "30 Vignes Street, Ermington NSW 2115",
+  "price": "$2,100,000-$2,200,000",
+  "status": "active",
+  "sold_price": null,
+  "headline": null,
+  "description": "Property Description\nModern home with luxury finishes\nProudly presented by DTO Estate Agents, this 2-year-young, architecturally designed residence delivers the ultimate in modern family living. Boasting five generously sized bedrooms, multiple indoor and outdoor entertaining areas, and high-end finishes throughout, this home is a showcase of style, space, and functionality.\nProperty Highlights:\n- Spacious & Versatile Living:\n- Formal lounge, open\nRead more",
+  "bedrooms": "5",
+  "bathrooms": "3",
+  "parking": "1",
+  "property_type": "House",
+  "property_size": null,
+  "agent_name": null,
+  "agent_phone": null,
+  "image_urls": [
+    "https://rimh2.domainstatic.com.au/oP-jXjOQIYwkkE7ZU3weSq4g9qU=/fit-in/1920x1080/filters:format(webp):quality(85):no_upscale()/2020221582_1_1_250825_085120-w3840-h2560",
+    "https://rimh2.domainstatic.com.au/IRpiSPeljbA3GEYpQGaY3-nyAnM=/fit-in/1920x1080/filters:format(webp):quality(85):no_upscale()/2020221582_9_3_250825_085120-w2050-h1448",
+    "https://rimh2.domainstatic.com.au/CBmNrrLj9DadQhSz425y5DSB_VU=/fit-in/1920x1080/filters:format(webp):quality(85):no_upscale()/2020221582_2_1_250825_085120-w3840-h2560",
+    "https://rimh2.domainstatic.com.au/vsRXb0nntpwpqFP8uMSDO-UmrYQ=/fit-in/1920x1080/filters:format(webp):quality(85):no_upscale()/2020221582_3_1_250825_085120-w3840-h2560",
+    "https://s.domainstatic.com.au/fe-server-search-listings/master-6888/_next/static/media/domain-insight.21cf7f0d.svg"
+  ],
+  "url": "https://www.domain.com.au/2020221582"
+}

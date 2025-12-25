@@ -7,14 +7,13 @@ const loadingEl = document.getElementById('loading')
 const totalCountEl = document.getElementById('total-count')
 const availableCountEl = document.getElementById('available-count')
 const soldCountEl = document.getElementById('sold-count')
-const filterAllBtn = document.getElementById('filter-all')
-const filterAvailableBtn = document.getElementById('filter-available')
-const filterSoldBtn = document.getElementById('filter-sold')
+const hideSoldBtn = document.getElementById('hide-sold-btn')
 const sortTravelBtn = document.getElementById('sort-travel')
 const filterTomYesBtn = document.getElementById('filter-tom-yes')
 const filterMqYesBtn = document.getElementById('filter-mq-yes')
 const filterExcludeSelect = document.getElementById('exclude-voted-select')
 const filterTravelSelect = document.getElementById('filter-travel-max')
+const hideDuplexBtn = document.getElementById('hide-duplex-btn')
 
 // currentFilter and currentSort will be loaded from localStorage below
 // persistent filters stored in localStorage
@@ -22,10 +21,24 @@ let stored = {}
 try { stored = JSON.parse(localStorage.getItem('hf_filters') || '{}') } catch(e) { stored = {} }
 let currentTomFilter = stored.tom || 'any' // any, yes, no
 let currentMqFilter = stored.mq || 'any'
-let currentFilter = stored.status || 'all'
-let currentSort = stored.sort || 'none'
+// defaults: hide sold by default, sort by travel on, hide duplex on, travel max 55
+let currentFilter = (typeof stored.status === 'undefined') ? 'hide_sold' : stored.status || 'all'
+let currentSort = stored.sort || 'travel'
 let currentExcludeMode = stored.exclude_voted_mode || 'none'
-let currentTravelMax = stored.travel_max || 'any' // minutes or 'any'
+let currentTravelMax = stored.travel_max || '55' // minutes or 'any'
+let currentHideDuplex = (typeof stored.hide_duplex === 'undefined') ? true : !!stored.hide_duplex
+
+// filters panel toggle
+const filtersToggleBtn = document.getElementById('filters-toggle')
+const filtersPanel = document.getElementById('filters-panel')
+if (filtersToggleBtn && filtersPanel) {
+  // hide panel by default on small screens; keep visible on large
+  filtersToggleBtn.addEventListener('click', (e) => {
+    const expanded = filtersToggleBtn.getAttribute('aria-expanded') === 'true'
+    filtersToggleBtn.setAttribute('aria-expanded', (!expanded).toString())
+    filtersPanel.classList.toggle('hidden')
+  })
+}
 
 // simple html escaper for comment text
 function escapeHtml(str){
@@ -35,23 +48,55 @@ function escapeHtml(str){
   })
 }
 
+// helper to apply consistent toggle visuals
+function setToggleVisual(btn, on, color){
+  if(!btn) return
+  // remove known color classes
+  const colors = ['green','blue','yellow','purple','red','indigo']
+  const offClasses = ['bg-gray-100','text-gray-800']
+  btn.classList.remove(...offClasses)
+  btn.classList.remove('bg-green-600','bg-blue-600','bg-yellow-600','bg-purple-600','bg-red-600','bg-indigo-600','text-white')
+  if(on){
+    let className = 'bg-green-600'
+    if(color === 'blue') className = 'bg-blue-600'
+    else if(color === 'yellow') className = 'bg-yellow-600'
+    else if(color === 'purple') className = 'bg-purple-600'
+    else if(color === 'red') className = 'bg-red-600'
+    else if(color === 'indigo') className = 'bg-indigo-600'
+    btn.classList.add(className,'text-white')
+  } else {
+    btn.classList.add('bg-gray-100','text-gray-800')
+  }
+}
+
 async function loadMore() {
   if (loading) return
   loading = true
   loadingEl.style.display = 'block'
   try {
-    const qs = new URLSearchParams({offset, limit, status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode})
+    // map internal filter to API status: 'hide_sold' -> request available only, otherwise all
+    const statusParam = (currentFilter === 'hide_sold') ? 'available' : 'all'
+    const qs = new URLSearchParams({offset, limit, status: statusParam, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode})
     if (currentTravelMax && currentTravelMax !== 'any') qs.set('travel_max', String(currentTravelMax))
     const res = await fetch(`/api/listings?${qs.toString()}`)
     const data = await res.json()
     const items = data.listings || []
+    // client-side hide duplex/semi-detached if enabled
+    const filteredItems = items.filter(it => {
+      if (!currentHideDuplex) return true
+      const pt = (it.property_type || '').toString().toLowerCase()
+      if (!pt) return true
+      if (pt.includes('duplex')) return false
+      if (pt.includes('semi') || pt.includes('semi-detached') || pt.includes('semi detached')) return false
+      return true
+    })
     // update totals if provided
     if (typeof data.total !== 'undefined') {
       totalCountEl.textContent = data.total
       availableCountEl.textContent = data.available
       soldCountEl.textContent = data.sold
     }
-    for (const item of items) renderItem(item)
+    for (const item of filteredItems) renderItem(item)
     offset += items.length
     if (items.length < limit) {
       loadingEl.textContent = 'No more listings.'
@@ -221,8 +266,18 @@ function renderItem(item) {
       const txt = el.querySelector('.new-comment-input') ? el.querySelector('.new-comment-input').value.trim() : ''
       if (!txt) return
       try {
-        await fetch(`/api/listing/${id}/comment`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({person: who, text: txt})})
-        resetAndLoad()
+        const resp = await fetch(`/api/listing/${id}/comment`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({person: who, text: txt})})
+        const j = await resp.json().catch(()=>null)
+        if (j && j.ok && j.comment) {
+          // insert new comment at top of this card
+          insertCommentIntoCard(el, j.comment)
+          // clear textarea
+          const ta = el.querySelector('.new-comment-input')
+          if (ta) ta.value = ''
+        } else {
+          // fallback refresh
+          resetAndLoad()
+        }
       } catch (e) { console.error('new comment failed', e) }
     })
   })
@@ -238,8 +293,17 @@ function renderItem(item) {
       const newText = prompt('Edit comment', old)
       if (newText === null) return
       try {
-        await fetch(`/api/listing/${item.id}/comment/${cid}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text: newText})})
-        resetAndLoad()
+        const resp = await fetch(`/api/listing/${item.id}/comment/${cid}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text: newText})})
+        const j = await resp.json().catch(()=>null)
+        if (j && j.ok) {
+          // update DOM inline
+          const txtEl = itemDiv.querySelector('.comment-text')
+          if (txtEl) txtEl.textContent = newText
+          const tsEl = itemDiv.querySelector('.text-xs')
+          if (tsEl) tsEl.textContent = new Date().toLocaleString()
+        } else {
+          resetAndLoad()
+        }
       } catch (e) { console.error('edit failed', e) }
     })
   })
@@ -252,8 +316,15 @@ function renderItem(item) {
       if (!confirm('Delete comment?')) return
       const cid = b.closest('.comment-item').getAttribute('data-cid')
       try {
-        await fetch(`/api/listing/${item.id}/comment/${cid}`, {method:'DELETE'})
-        resetAndLoad()
+        const resp = await fetch(`/api/listing/${item.id}/comment/${cid}`, {method:'DELETE'})
+        const j = await resp.json().catch(()=>null)
+        if (j && j.ok) {
+          // remove from DOM
+          const node = b.closest('.comment-item')
+          if (node && node.parentNode) node.parentNode.removeChild(node)
+        } else {
+          resetAndLoad()
+        }
       } catch (e) { console.error('delete failed', e) }
     })
   })
@@ -324,26 +395,127 @@ function populateTravelSelect(){
   })
 }
 
+// hide-duplex button handling (dropdown-styled toggle)
+function applyHideDuplexUI(){
+  if (!hideDuplexBtn) return
+  setToggleVisual(hideDuplexBtn, currentHideDuplex, 'green')
+  hideDuplexBtn.setAttribute('aria-pressed', currentHideDuplex ? 'true' : 'false')
+  hideDuplexBtn.addEventListener('click', () => {
+    currentHideDuplex = !currentHideDuplex
+    hideDuplexBtn.setAttribute('aria-pressed', currentHideDuplex ? 'true' : 'false')
+    setToggleVisual(hideDuplexBtn, currentHideDuplex, 'green')
+    saveFilters(); resetAndLoad()
+  })
+}
+
+// Insert comment DOM element into a card's existing-comments container
+function insertCommentIntoCard(cardEl, comment) {
+  if (!cardEl || !comment) return
+  const list = cardEl.querySelector('.existing-comments')
+  if (!list) return
+  const who = comment.person === 'tom' ? 'Tom' : 'MQ'
+  const wrapper = document.createElement('div')
+  wrapper.className = 'comment-item text-sm border rounded p-2 mb-1 flex items-start justify-between'
+  wrapper.setAttribute('data-cid', comment.id)
+  wrapper.innerHTML = `<div><strong>${who}:</strong> <span class="comment-text">${escapeHtml(comment.text)}</span> <div class="text-xs text-gray-400">${new Date(comment.ts*1000).toLocaleString()}</div></div><div class="ml-3 flex items-center"><button class="edit-comment text-xs ml-2 px-2 py-1" title="Edit">✏️</button><button class="del-comment text-xs ml-1 px-2 py-1 text-red-500" title="Delete">🗑️</button></div>`
+  // insert at top
+  if (list.firstChild) list.insertBefore(wrapper, list.firstChild)
+  else list.appendChild(wrapper)
+  // trim to 3 items
+  const items = list.querySelectorAll('.comment-item')
+  if (items.length > 3) {
+    for (let i = 3; i < items.length; i++) items[i].remove()
+  }
+  // attach handlers to new buttons
+  const editBtn = wrapper.querySelector('.edit-comment')
+  const delBtn = wrapper.querySelector('.del-comment')
+  if (editBtn) {
+    editBtn.addEventListener('click', async (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const old = wrapper.querySelector('.comment-text') ? wrapper.querySelector('.comment-text').textContent : ''
+      const newText = prompt('Edit comment', old)
+      if (newText === null) return
+      try {
+        const cid = wrapper.getAttribute('data-cid')
+        const resp = await fetch(`/api/listing/${cardEl.querySelector('.vote-btn')?.getAttribute('data-id') || ''}/comment/${cid}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text: newText})})
+        const j = await resp.json().catch(()=>null)
+        if (j && j.ok) {
+          const txtEl = wrapper.querySelector('.comment-text')
+          if (txtEl) txtEl.textContent = newText
+          const tsEl = wrapper.querySelector('.text-xs')
+          if (tsEl) tsEl.textContent = new Date().toLocaleString()
+        } else {
+          resetAndLoad()
+        }
+      } catch (e) { console.error('edit failed', e) }
+    })
+  }
+  if (delBtn) {
+    delBtn.addEventListener('click', async (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      if (!confirm('Delete comment?')) return
+      try {
+        const cid = wrapper.getAttribute('data-cid')
+        const resp = await fetch(`/api/listing/${cardEl.querySelector('.vote-btn')?.getAttribute('data-id') || ''}/comment/${cid}`, {method:'DELETE'})
+        const j = await resp.json().catch(()=>null)
+        if (j && j.ok) wrapper.remove()
+        else resetAndLoad()
+      } catch (e) { console.error('delete failed', e) }
+    })
+  }
+}
+
 function saveFilters(){
-  const obj = {status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode, travel_max: currentTravelMax}
+  const obj = {status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode, travel_max: currentTravelMax, hide_duplex: currentHideDuplex}
   try{ localStorage.setItem('hf_filters', JSON.stringify(obj)) }catch(e){}
 }
 
-filterAllBtn.addEventListener('click', () => { currentFilter = 'all'; saveFilters(); resetAndLoad() })
-filterAvailableBtn.addEventListener('click', () => { currentFilter = 'available'; saveFilters(); resetAndLoad() })
-filterSoldBtn.addEventListener('click', () => { currentFilter = 'sold'; saveFilters(); resetAndLoad() })
-sortTravelBtn.addEventListener('click', () => { currentSort = currentSort === 'travel' ? 'none' : 'travel'; saveFilters(); resetAndLoad(); sortTravelBtn.textContent = currentSort === 'travel' ? 'Sort: travel (on)' : 'Sort by travel time' })
+// Hide-sold toggle: default shows only available when on
+if (hideSoldBtn) {
+  const updateHideSoldUI = () => {
+    const on = currentFilter === 'hide_sold'
+    hideSoldBtn.setAttribute('aria-pressed', on ? 'true' : 'false')
+    setToggleVisual(hideSoldBtn, on, 'green')
+  }
+  updateHideSoldUI()
+  hideSoldBtn.addEventListener('click', () => {
+    currentFilter = (currentFilter === 'hide_sold') ? 'all' : 'hide_sold'
+    updateHideSoldUI()
+    saveFilters(); resetAndLoad()
+  })
+}
+
+// sort by travel toggle (default ON)
+if (sortTravelBtn) {
+  const updateSortUI = () => {
+    const on = currentSort === 'travel'
+    setToggleVisual(sortTravelBtn, on, 'green')
+    sortTravelBtn.textContent = on ? 'Sort: travel' : 'Sort by travel time'
+  }
+  updateSortUI()
+  sortTravelBtn.addEventListener('click', () => { currentSort = currentSort === 'travel' ? 'none' : 'travel'; saveFilters(); resetAndLoad(); updateSortUI() })
+}
+
 // cycle tri-state: any -> yes -> no -> any
-filterTomYesBtn.addEventListener('click', () => {
-  currentTomFilter = currentTomFilter === 'any' ? 'yes' : (currentTomFilter === 'yes' ? 'no' : 'any')
-  saveFilters(); resetAndLoad();
-  filterTomYesBtn.textContent = currentTomFilter === 'yes' ? 'Tom:Yes (on)' : (currentTomFilter === 'no' ? 'Tom:No (on)' : 'Tom')
-})
-filterMqYesBtn.addEventListener('click', () => {
-  currentMqFilter = currentMqFilter === 'any' ? 'yes' : (currentMqFilter === 'yes' ? 'no' : 'any')
-  saveFilters(); resetAndLoad();
-  filterMqYesBtn.textContent = currentMqFilter === 'yes' ? 'MQ:Yes (on)' : (currentMqFilter === 'no' ? 'MQ:No (on)' : 'MQ')
-})
+if (filterTomYesBtn) {
+  const updateTomUI = () => {
+    if (currentTomFilter === 'yes') { setToggleVisual(filterTomYesBtn, true, 'green'); filterTomYesBtn.textContent = 'Tom:Yes' }
+    else if (currentTomFilter === 'no') { setToggleVisual(filterTomYesBtn, true, 'red'); filterTomYesBtn.textContent = 'Tom:No' }
+    else { setToggleVisual(filterTomYesBtn, false); filterTomYesBtn.textContent = 'Tom' }
+  }
+  updateTomUI()
+  filterTomYesBtn.addEventListener('click', () => { currentTomFilter = currentTomFilter === 'any' ? 'yes' : (currentTomFilter === 'yes' ? 'no' : 'any'); saveFilters(); resetAndLoad(); updateTomUI() })
+}
+if (filterMqYesBtn) {
+  const updateMqUI = () => {
+    if (currentMqFilter === 'yes') { setToggleVisual(filterMqYesBtn, true, 'green'); filterMqYesBtn.textContent = 'MQ:Yes' }
+    else if (currentMqFilter === 'no') { setToggleVisual(filterMqYesBtn, true, 'red'); filterMqYesBtn.textContent = 'MQ:No' }
+    else { setToggleVisual(filterMqYesBtn, false); filterMqYesBtn.textContent = 'MQ' }
+  }
+  updateMqUI()
+  filterMqYesBtn.addEventListener('click', () => { currentMqFilter = currentMqFilter === 'any' ? 'yes' : (currentMqFilter === 'yes' ? 'no' : 'any'); saveFilters(); resetAndLoad(); updateMqUI() })
+}
+
 if (filterExcludeSelect) {
   filterExcludeSelect.value = currentExcludeMode || 'none'
   filterExcludeSelect.addEventListener('change', () => {
@@ -354,14 +526,28 @@ if (filterExcludeSelect) {
 
 // initialise UI from stored filters
 function applyStoredToUI(){
-  if(currentSort === 'travel') sortTravelBtn.textContent = 'Sort: travel (on)'
-  else sortTravelBtn.textContent = 'Sort by travel time'
-  filterTomYesBtn.textContent = currentTomFilter === 'yes' ? 'Tom:Yes (on)' : (currentTomFilter === 'no' ? 'Tom:No (on)' : 'Tom')
-  filterMqYesBtn.textContent = currentMqFilter === 'yes' ? 'MQ:Yes (on)' : (currentMqFilter === 'no' ? 'MQ:No (on)' : 'MQ')
-  excludeVotedBtn.textContent = currentExcludeVoted ? 'Exclude voted (on)' : 'Exclude voted'
+  try {
+    if (sortTravelBtn) { setToggleVisual(sortTravelBtn, currentSort === 'travel', 'green'); sortTravelBtn.textContent = currentSort === 'travel' ? 'Sort: travel' : 'Sort by travel time' }
+    if (filterTomYesBtn) {
+      if (currentTomFilter === 'yes') setToggleVisual(filterTomYesBtn, true, 'green')
+      else if (currentTomFilter === 'no') setToggleVisual(filterTomYesBtn, true, 'red')
+      else setToggleVisual(filterTomYesBtn, false)
+      filterTomYesBtn.textContent = currentTomFilter === 'yes' ? 'Tom:Yes' : (currentTomFilter === 'no' ? 'Tom:No' : 'Tom')
+    }
+    if (filterMqYesBtn) {
+      if (currentMqFilter === 'yes') setToggleVisual(filterMqYesBtn, true, 'green')
+      else if (currentMqFilter === 'no') setToggleVisual(filterMqYesBtn, true, 'red')
+      else setToggleVisual(filterMqYesBtn, false)
+      filterMqYesBtn.textContent = currentMqFilter === 'yes' ? 'MQ:Yes' : (currentMqFilter === 'no' ? 'MQ:No' : 'MQ')
+    }
+  } catch(e){}
+  if (filterExcludeSelect) filterExcludeSelect.value = currentExcludeMode || 'none'
+  try { if (hideDuplexBtn) { hideDuplexBtn.setAttribute('aria-pressed', currentHideDuplex ? 'true' : 'false'); setToggleVisual(hideDuplexBtn, currentHideDuplex, 'green') } } catch(e){}
+  try { if (hideSoldBtn) { const on = currentFilter === 'hide_sold'; hideSoldBtn.setAttribute('aria-pressed', on ? 'true' : 'false'); setToggleVisual(hideSoldBtn, on, 'green') } } catch(e){}
 }
 
 applyStoredToUI()
 populateTravelSelect()
+applyHideDuplexUI()
 resetAndLoad()
 //update

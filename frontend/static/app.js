@@ -74,7 +74,7 @@ function renderItem(item) {
   const travelText = item.travel_duration_text || ''
   // travel link (opens google maps if available) and holds route_summary for tooltip
   const travel = travelText ? `<a href="${item.google_maps_url || item.url || '#'}" target="_blank" class="mr-2 text-sm text-blue-600 hover:underline travel-link" data-route="${(item.route_summary||'').replace(/"/g,'&quot;')}">🚆 ${travelText}</a>` : ''
-  const domainLink = item.url ? `<a href="${item.url}" target="_blank" class="ml-2 text-sm text-gray-500 hover:text-gray-700">🏠 (domain)</a>` : ''
+  const domainLink = item.url ? `<a href="${item.url}" target="_blank" class="inline-block px-3 py-1 bg-gray-700 text-white rounded">🏠 Domain</a>` : ''
 
   // Voting UI in card (compact): Tom and MQ yes/no buttons and a hidden comment area
   // build comments html: show newest 3 comments, then view more link if more exist
@@ -107,13 +107,7 @@ function renderItem(item) {
       <div class="new-comment mt-2">
         <button class="toggle-new-comment inline-flex items-center px-2 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded" aria-expanded="false" title="Add a comment to this listing">💬 Add comment</button>
         <div class="new-comment-area hidden mt-2">
-          <div class="mb-2">
-            <select class="new-comment-who p-1 border rounded">
-              <option value="tom">Tom</option>
-              <option value="mq">MQ</option>
-            </select>
-          </div>
-          <textarea placeholder="Leave a comment..." class="new-comment-input w-full p-2 border rounded"></textarea>
+            <textarea placeholder="Leave a comment..." class="new-comment-input w-full p-2 border rounded"></textarea>
           <div class="mt-2 flex justify-end space-x-2"><button class="new-comment-save px-3 py-1 bg-blue-200 rounded" data-person="tom">Save Tom</button><button class="new-comment-save px-3 py-1 bg-indigo-200 rounded" data-person="mq">Save MQ</button></div>
         </div>
       </div>
@@ -122,7 +116,7 @@ function renderItem(item) {
 
   el.innerHTML = `
     ${img}
-    <div class="text-sm text-gray-600 mb-1">${item.address || ''} ${domainLink}</div>
+    <div class="text-sm text-gray-600 mb-1">${item.address || ''}</div>
     <div class="flex items-center text-sm text-gray-700 mb-2">${beds}${baths}${travel}</div>
     <div class="text-sm text-gray-500">${item.price || ''}</div>
     ${voteUi}
@@ -204,7 +198,7 @@ function renderItem(item) {
     btn.addEventListener('click', async (ev) => {
       ev.preventDefault(); ev.stopPropagation();
       const id = item.id
-      const who = btn.getAttribute('data-person') || (el.querySelector('.new-comment-who') ? el.querySelector('.new-comment-who').value : 'tom')
+      const who = btn.getAttribute('data-person') || 'tom'
       const txt = el.querySelector('.new-comment-input') ? el.querySelector('.new-comment-input').value.trim() : ''
       if (!txt) return
       try {

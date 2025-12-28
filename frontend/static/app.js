@@ -14,6 +14,7 @@ const filterMqYesBtn = document.getElementById('filter-mq-yes')
 const filterExcludeSelect = document.getElementById('exclude-voted-select')
 const filterTravelSelect = document.getElementById('filter-travel-max')
 const hideDuplexBtn = document.getElementById('hide-duplex-btn')
+const searchInput = document.getElementById('searchInput')
 
 // currentFilter and currentSort will be loaded from localStorage below
 // persistent filters stored in localStorage
@@ -27,6 +28,8 @@ let currentSort = stored.sort || 'travel'
 let currentExcludeMode = stored.exclude_voted_mode || 'none'
 let currentTravelMax = stored.travel_max || '55' // minutes or 'any'
 let currentHideDuplex = (typeof stored.hide_duplex === 'undefined') ? true : !!stored.hide_duplex
+// search term state
+let currentSearchTerm = stored.search || ''
 
 // filters panel toggle
 const filtersToggleBtn = document.getElementById('filters-toggle')
@@ -89,6 +92,19 @@ async function loadMore() {
       if (pt.includes('duplex')) return false
       if (pt.includes('semi') || pt.includes('semi-detached') || pt.includes('semi detached')) return false
       return true
+    }).filter(it => {
+      // client-side search filtering
+      if (!currentSearchTerm) return true
+      const searchTerm = currentSearchTerm.toLowerCase()
+      return (
+        (it.title && it.title.toLowerCase().includes(searchTerm)) ||
+        (it.address && it.address.toLowerCase().includes(searchTerm)) ||
+        (it.suburb && it.suburb.toLowerCase().includes(searchTerm)) ||
+        (it.property_type && it.property_type.toLowerCase().includes(searchTerm)) ||
+        (it.url && it.url.toLowerCase().includes(searchTerm)) ||
+        (it.comments && it.comments.some(c => c.text && c.text.toLowerCase().includes(searchTerm))) ||
+        (it.travel_duration_text && it.travel_duration_text.toLowerCase().includes(searchTerm))
+      )
     })
     // update totals if provided
     if (typeof data.total !== 'undefined') {
@@ -97,7 +113,7 @@ async function loadMore() {
       soldCountEl.textContent = data.sold
     }
     for (const item of filteredItems) renderItem(item)
-    offset += items.length
+    offset += filteredItems.length
     if (items.length < limit) {
       loadingEl.textContent = 'No more listings.'
     }
@@ -466,8 +482,18 @@ function insertCommentIntoCard(cardEl, comment) {
 }
 
 function saveFilters(){
-  const obj = {status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode, travel_max: currentTravelMax, hide_duplex: currentHideDuplex}
+  const obj = {status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode, travel_max: currentTravelMax, hide_duplex: currentHideDuplex, search: currentSearchTerm}
   try{ localStorage.setItem('hf_filters', JSON.stringify(obj)) }catch(e){}
+}
+
+// Search functionality
+if (searchInput) {
+  searchInput.value = currentSearchTerm
+  searchInput.addEventListener('input', () => {
+    currentSearchTerm = searchInput.value
+    saveFilters()
+    resetAndLoad()
+  })
 }
 
 // Hide-sold toggle: default shows only available when on

@@ -17,8 +17,14 @@
           <span class="ml-4 font-medium">Available:</span> <span id="available-count">0</span>
           <span class="ml-4 font-medium">Sold:</span> <span id="sold-count">0</span>
         </div>
-        <div class="relative">
+        <div class="flex items-center gap-2">
+          <div class="relative">
+            <input type="text" id="searchInput" placeholder="Search listings..." class="pl-4 pr-10 py-2 border rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <i class="fa-solid fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+          </div>
           <button id="filters-toggle" aria-expanded="false" aria-label="Filters" title="Filters" class="p-2 bg-gray-100 rounded inline-flex items-center text-lg"><i class="fa-solid fa-filter"></i></button>
+        </div>
+      </div>
           <div id="filters-panel" class="absolute right-0 mt-2 w-80 bg-white border rounded shadow p-3 hidden z-50">
             <div class="flex flex-col gap-3">
               <div class="flex">
@@ -56,9 +62,6 @@
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
       <div id="listings" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
       <div id="loading" class="text-center py-4 text-gray-600">Loading...</div>
     </div>

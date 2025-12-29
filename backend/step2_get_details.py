@@ -164,8 +164,19 @@ def parse_listing(html, listing_id):
 def save_listing_json(listing_id, data):
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
     path = os.path.join(OUTPUT_FOLDER, f"{listing_id}.json")
+    
+    # Load existing data if file exists
+    existing_data = {}
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            existing_data = json.load(f)
+    
+    # Merge existing data with new data, preserving existing fields
+    merged_data = existing_data.copy()
+    merged_data.update(data)
+    
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+        json.dump(merged_data, f, indent=2, ensure_ascii=False)
 
 
 def main():

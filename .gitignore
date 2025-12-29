@@ -13,3 +13,4 @@
 # Ignore votes/comments persisted file (optional)
 # Uncomment if you want to ignore votes.json as well
 # **/votes.json
+.continue

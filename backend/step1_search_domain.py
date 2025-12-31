@@ -54,7 +54,7 @@ BASE_URL = (
     "lane-cove-nsw-2066,"
     "oatley-nsw-2223,"
     "sans-souci-nsw-2219"
-    "&ptype=free-standing&bedrooms=4-any&price=0-2250000&excludeunderoffer=1"
+    "&ptype=free-standing&bedrooms=4-any&price=0-2500000&excludeunderoffer=1"
 )
 
 DATA_DIR = os.environ.get("DATA_DIR", ".")

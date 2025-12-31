@@ -81,10 +81,12 @@ async function loadMore() {
     const statusParam = (currentFilter === 'hide_sold') ? 'available' : 'all'
     const qs = new URLSearchParams({offset, limit, status: statusParam, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode})
     if (currentTravelMax && currentTravelMax !== 'any') qs.set('travel_max', String(currentTravelMax))
+    // Add search term to the query string so server can filter
+    if (currentSearchTerm) qs.set('search', currentSearchTerm)
     const res = await fetch(`/api/listings?${qs.toString()}`)
     const data = await res.json()
     const items = data.listings || []
-    // client-side hide duplex/semi-detached if enabled
+    // Client-side hide duplex/semi-detached if enabled
     const filteredItems = items.filter(it => {
       if (!currentHideDuplex) return true
       const pt = (it.property_type || '').toString().toLowerCase()
@@ -92,20 +94,9 @@ async function loadMore() {
       if (pt.includes('duplex')) return false
       if (pt.includes('semi') || pt.includes('semi-detached') || pt.includes('semi detached')) return false
       return true
-    }).filter(it => {
-      // client-side search filtering
-      if (!currentSearchTerm) return true
-      const searchTerm = currentSearchTerm.toLowerCase()
-      return (
-        (it.title && it.title.toLowerCase().includes(searchTerm)) ||
-        (it.address && it.address.toLowerCase().includes(searchTerm)) ||
-        (it.suburb && it.suburb.toLowerCase().includes(searchTerm)) ||
-        (it.property_type && it.property_type.toLowerCase().includes(searchTerm)) ||
-        (it.url && it.url.toLowerCase().includes(searchTerm)) ||
-        (it.comments && it.comments.some(c => c.text && c.text.toLowerCase().includes(searchTerm))) ||
-        (it.travel_duration_text && it.travel_duration_text.toLowerCase().includes(searchTerm))
-      )
     })
+    // Remove client-side search filtering since server now handles it
+    // const filteredItems = items.filter(it => { ... search logic ... })
     // update totals if provided
     if (typeof data.total !== 'undefined') {
       totalCountEl.textContent = data.total
@@ -492,6 +483,7 @@ if (searchInput) {
   searchInput.addEventListener('input', () => {
     currentSearchTerm = searchInput.value
     saveFilters()
+    // Reset and reload with the new search term
     resetAndLoad()
   })
 }
@@ -576,4 +568,3 @@ applyStoredToUI()
 populateTravelSelect()
 applyHideDuplexUI()
 resetAndLoad()
-//update

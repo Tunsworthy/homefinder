@@ -196,6 +196,12 @@ def api_listings():
     except Exception:
         pass
 
+    # filter by search term (case-insensitive, searches in address)
+    search_term = request.args.get('search', '').strip()
+    if search_term:
+        search_lower = search_term.lower()
+        summaries = [s for s in summaries if s.get('address') and search_lower in s.get('address', '').lower()]
+
     # apply sorting
     if sort == 'travel':
         # None travel times should be placed at end

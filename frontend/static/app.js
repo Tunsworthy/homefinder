@@ -51,6 +51,12 @@ function escapeHtml(str){
   })
 }
 
+// strip HTML tags from a string (simple)
+function stripHtml(input){
+  if(!input) return ''
+  try{ return String(input).replace(/<[^>]*>/g, ' ').replace(/\s+/g,' ').trim() }catch(e){ return String(input) }
+}
+
 // helper to apply consistent toggle visuals
 function setToggleVisual(btn, on, color){
   if(!btn) return
@@ -123,9 +129,8 @@ function renderItem(item) {
   const img = item.image ? `<img src="${item.image}" class="w-full h-48 object-cover rounded mb-3 cursor-pointer" data-carousel-id="${item.id}" data-image-index="0">` : ''
   const beds = item.bedrooms ? `<span class="mr-2">🛏 ${item.bedrooms}</span>` : ''
   const baths = item.bathrooms ? `<span class="mr-2">🛁 ${item.bathrooms}</span>` : ''
-  const travelText = item.travel_duration_text || ''
-  // travel link (opens google maps if available) and holds route_summary for tooltip
-  const travel = travelText ? `<a href="${item.google_maps_url || item.url || '#'}" target="_blank" class="mr-2 text-sm text-blue-600 hover:underline travel-link" data-route="${(item.route_summary||'').replace(/"/g,'&quot;')}">🚆 ${travelText}</a>` : ''
+  // commute badges placeholder (will be populated asynchronously)
+  const travel = `<div class="commutes-container inline-block mr-2" data-id="${item.id}"></div>`
   const domainLink = item.url ? `<a href="${item.url}" target="_blank" class="inline-block px-3 py-1 bg-gray-700 text-white rounded">🏠 Domain</a>` : ''
   // Carousel HTML - only show if multiple images exist
   let carouselHTML = ''
@@ -187,11 +192,12 @@ function renderItem(item) {
     </div>
   `
 
-  el.innerHTML = `
+    el.innerHTML = `
     ${carouselHTML}
     <div class="text-sm text-gray-600 mb-1">${item.address || ''}</div>
-    <div class="flex items-center text-sm text-gray-700 mb-2">${beds}${baths}${travel}</div>
-    <div class="text-sm text-gray-500">${item.price || ''}</div>
+    <div class="text-sm text-gray-500 mb-2">${item.price || ''}</div>
+    <div class="flex items-center text-sm text-gray-700 mb-2">${beds}${baths}</div>
+    <div class="flex items-center text-sm text-gray-700 mb-2">${travel}</div>
     ${voteUi}
     <div class="mt-3">
       <a href="/listing/${item.id}" class="inline-block mr-3 px-3 py-1 bg-blue-600 text-white rounded">More details</a>
@@ -381,17 +387,11 @@ function renderItem(item) {
     })
   })
 
-  // travel tooltip
-  const travelLink = el.querySelector('.travel-link')
-  if (travelLink) {
-    travelLink.addEventListener('mouseenter', (e) => {
-      const route = travelLink.getAttribute('data-route')
-      if (!route) return
-      showTooltip(e.pageX, e.pageY, route)
-    })
-    travelLink.addEventListener('mousemove', (e) => { moveTooltip(e.pageX, e.pageY) })
-    travelLink.addEventListener('mouseleave', hideTooltip)
-  }
+  // commutes will be loaded asynchronously into the .commutes-container
+
+  // kick off loading commute details for this listing (renders into .commutes-container)
+  const commutesContainer = el.querySelector('.commutes-container')
+  if (commutesContainer) loadAndRenderCommutes(item.id, commutesContainer, item)
 }
 
 // Tooltip helpers
@@ -414,6 +414,169 @@ function showTooltip(x, y, html) {
 }
 function moveTooltip(x, y) { if (tooltipEl) { tooltipEl.style.left = (x + 12) + 'px'; tooltipEl.style.top = (y + 12) + 'px' } }
 function hideTooltip() { if (tooltipEl) tooltipEl.style.display = 'none' }
+
+// Build a Google Maps directions URL for a commute
+function buildGoogleMapsLink(origin, destination, mode) {
+  try {
+    const qs = new URLSearchParams()
+    // use Google Maps URL parameters for Directions API web intent
+    qs.set('api', '1')
+    if (origin) qs.set('origin', origin)
+    if (destination) qs.set('destination', destination)
+    if (mode) qs.set('travelmode', mode === 'transit' ? 'transit' : mode)
+    return `https://www.google.com/maps/dir/?${qs.toString()}`
+  } catch (e) { return '#'
+  }
+}
+
+// Map commute name to a representative emoji icon
+function commuteNameToIcon(name) {
+  if (!name) return '🚆'
+  const n = name.toString().toLowerCase()
+  if (n.includes('work') || n.includes('office') || n.includes('job')) return '💼'
+  if (n.includes('church') || n.includes('chapel') || n.includes('temple')) return '⛪'
+  if (n.includes('school') || n.includes('uni') || n.includes('college')) return '🎓'
+  if (n.includes('gym') || n.includes('fitness')) return '🏋️'
+  if (n.includes('shop') || n.includes('grocery') || n.includes('supermarket')) return '🛒'
+  if (n.includes('park') || n.includes('walk')) return '🚶'
+  if (n.includes('drive') || n.includes('car') || n.includes('driving')) return '🚗'
+  return '🚆'
+}
+
+// Load per-listing commute JSON and render compact commute badges
+async function loadAndRenderCommutes(listingId, containerEl, item) {
+  if (!listingId || !containerEl) return
+  try {
+    const res = await fetch(`/commute/${listingId}.json`)
+    if (!res.ok) return // leave legacy travel link if available
+    const j = await res.json()
+    const commutes = j && j.commutes ? j.commutes : []
+    if (!commutes || commutes.length === 0) return
+    containerEl.innerHTML = ''
+    
+    // render each commute
+    for (const c of commutes) {
+      const name = c.name || (c.destination || '')
+      const mode = (c.mode || (c.result && c.result.raw_response && c.result.raw_response.request && c.result.raw_response.request.travelMode) || 'transit').toLowerCase()
+      // determine icon based on commute name
+      let icon = commuteNameToIcon(name)
+
+      // derive minutes from raw_response when possible
+      let minsLabel = ''
+      try {
+        const rr = c.result && c.result.raw_response
+        const dur = rr && rr.routes && rr.routes[0] && rr.routes[0].legs && rr.routes[0].legs[0] && rr.routes[0].legs[0].duration && rr.routes[0].legs[0].duration.value
+        if (dur) minsLabel = `${Math.round(dur/60)} min`
+        else if (c.result && c.result.summary) minsLabel = c.result.summary
+      } catch(e) { minsLabel = c.result && c.result.summary ? c.result.summary : '' }
+
+      const badge = document.createElement('a')
+      badge.className = 'commute-badge inline-block mr-2 px-2 py-1 rounded text-sm bg-gray-100 hover:bg-gray-200 text-gray-800'
+      badge.href = buildGoogleMapsLink(item.address || '', c.destination || '', mode)
+      badge.target = '_blank'
+      // prepare summary text (avoid storing objects in attributes)
+      let summaryText = ''
+      if (c.result && c.result.summary) {
+        if (typeof c.result.summary === 'string') summaryText = c.result.summary
+        else if (c.result.summary.duration_text) summaryText = c.result.summary.duration_text
+        else summaryText = JSON.stringify(c.result.summary)
+      }
+      // prepare nearest station string/object
+      let nearestStr = ''
+      let nearestObj = c.result && c.result.nearest_station
+      if (nearestObj) {
+        if (typeof nearestObj === 'string') nearestStr = nearestObj
+        else if (nearestObj.name) {
+          const mins = nearestObj.walking_seconds ? Math.round((nearestObj.walking_seconds||0)/60) : null
+          nearestStr = nearestObj.name + (mins ? ` (${mins} min walk)` : '')
+        } else {
+          nearestStr = JSON.stringify(nearestObj)
+        }
+      }
+
+      badge.setAttribute('data-commute-name', name)
+      badge.setAttribute('data-commute-mode', mode)
+      badge.setAttribute('data-commute-summary', summaryText)
+      badge.setAttribute('data-commute-nearest', nearestStr)
+      badge.innerHTML = `${icon} <strong class="mr-1">${minsLabel || ''}</strong>`
+
+      // tooltip on hover: show detailed summary
+      badge.addEventListener('mouseenter', (e) => {
+        // try to render per-step breakdown from raw Google response
+        let stepsHtml = ''
+        try {
+          const rr = c.result && c.result.raw_response
+          const leg = rr && rr.routes && rr.routes[0] && rr.routes[0].legs && rr.routes[0].legs[0]
+          if (leg && Array.isArray(leg.steps)) {
+            for (const s of leg.steps) {
+              const mode = (s.travel_mode || (s.transit_details ? 'TRANSIT' : '')).toUpperCase()
+              const instr = stripHtml(s.html_instructions || s.instructions || s.summary || '')
+              const dur = (s.duration && s.duration.text) ? s.duration.text : (s.duration && typeof s.duration.value === 'number' ? Math.round(s.duration.value/60) + ' mins' : '')
+              if (mode === 'WALKING') {
+                stepsHtml += `<div class="text-xs text-gray-700">Walk ${escapeHtml(dur)} — ${escapeHtml(instr)}</div>`
+              } else if (mode === 'TRANSIT') {
+                const td = s.transit_details || {}
+                const line = td.line || {}
+                const vehicle = (line.vehicle && line.vehicle.type) ? line.vehicle.type : (line.short_name || line.name || 'Transit')
+                const nameLabel = line.short_name || line.name || ''
+                const headsign = td.headsign ? ` → ${escapeHtml(stripHtml(td.headsign))}` : ''
+                const stops = td.num_stops ? ` (${td.num_stops} stops)` : ''
+                stepsHtml += `<div class="text-xs text-gray-700">${escapeHtml(vehicle)} ${escapeHtml(nameLabel)} ${escapeHtml(dur)}${headsign}${stops}</div>`
+              } else {
+                stepsHtml += `<div class="text-xs text-gray-700">${escapeHtml(mode)} ${escapeHtml(dur)} — ${escapeHtml(instr)}</div>`
+              }
+            }
+          } else {
+            stepsHtml = `<div class="text-xs text-gray-700">${escapeHtml(summaryText || '')}</div>`
+          }
+        } catch(err) {
+          stepsHtml = `<div class="text-xs text-gray-700">${escapeHtml(summaryText || '')}</div>`
+        }
+
+        const html = `<div class="font-medium">${escapeHtml(name)}</div>${stepsHtml}`
+        showTooltip(e.pageX, e.pageY, html)
+      })
+      badge.addEventListener('mousemove', (e) => moveTooltip(e.pageX, e.pageY))
+      badge.addEventListener('mouseleave', hideTooltip)
+
+      containerEl.appendChild(badge)
+      // render nearest-station as its own badge (if present)
+      if (nearestStr) {
+        const nbadge = document.createElement('a')
+        nbadge.className = 'nearest-badge inline-block mr-2 px-2 py-1 rounded text-sm bg-blue-50 hover:bg-blue-100 text-blue-700'
+        // link to walking directions from origin to station (use station name if available)
+        const stationTarget = (nearestObj && nearestObj.name) ? nearestObj.name : nearestStr
+        nbadge.href = buildGoogleMapsLink(item.address || '', stationTarget, 'walking')
+        nbadge.target = '_blank'
+        nbadge.innerHTML = `🚉 <span class="text-xs">${escapeHtml(nearestStr)}</span>`
+        nbadge.addEventListener('mouseenter', (e) => { showTooltip(e.pageX, e.pageY, `<div class="font-medium">Nearest station</div><div class="text-xs">${escapeHtml(nearestStr)}</div>`) })
+        nbadge.addEventListener('mousemove', (e) => moveTooltip(e.pageX, e.pageY))
+        nbadge.addEventListener('mouseleave', hideTooltip)
+        containerEl.appendChild(nbadge)
+      }
+    }
+    // Top-level nearest_station badge (per-listing) — render after all commute badges
+    if (j && j.nearest_station) {
+      const ns = j.nearest_station
+      if (ns && (ns.walking_seconds || ns.walking_seconds === 0)) {
+        const mins = (ns.walking_seconds !== null && typeof ns.walking_seconds === 'number') ? Math.round(ns.walking_seconds / 60) + ' mins' : ''
+        const nsBadge = document.createElement('a')
+        nsBadge.className = 'inline-block px-2 py-1 mr-2 mb-1 text-sm bg-yellow-100 rounded nearest-station-badge'
+        const origin = j.address || (item && item.address) || ''
+        const destination = ns.name || ''
+        nsBadge.href = buildGoogleMapsLink(origin, destination, 'walking')
+        nsBadge.target = '_blank'
+        nsBadge.rel = 'noopener noreferrer'
+        nsBadge.title = destination + (mins ? ` — ${mins}` : '')
+        nsBadge.innerHTML = `<span class="mr-1">🚶 🚆</span> <span class="font-medium">${escapeHtml(mins)}</span>`
+        containerEl.appendChild(nsBadge)
+      }
+    }
+  } catch (e) {
+    // silent fallback: keep whatever is in container (legacy travel link)
+    console.error('commute load failed', e)
+  }
+}
 
 // infinite scroll
 window.addEventListener('scroll', () => {

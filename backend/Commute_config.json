@@ -1,0 +1,18 @@
+{
+  "commutes": [
+    {
+      "name": "Work",
+      "address": "10 Castlereagh St, Sydney NSW 2000",
+      "mode": "transit",
+      "day": "weekday",
+      "time": "09:00"
+    },
+    {
+      "name": "Church",
+      "address": "Mclaren St and, Church St, North Sydney NSW 2060",
+      "mode": "driving",
+      "day": "Sunday",
+      "time": "9:45"
+    }
+  ]
+}

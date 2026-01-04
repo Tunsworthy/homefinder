@@ -13,8 +13,26 @@ async function loadDetail() {
     const beds = data.bedrooms ? `<div>Bedrooms: ${data.bedrooms}</div>` : ''
     const baths = data.bathrooms ? `<div>Bathrooms: ${data.bathrooms}</div>` : ''
     const parking = data.parking ? `<div>Parking: ${data.parking}</div>` : ''
-    const travel = data.travel_duration_text ? `<div>Travel: ${data.travel_duration_text}</div>` : ''
-    const route = data.route_summary ? `<div>Route: <a href="${data.google_maps_url || data.url || '#'}" target="_blank" class="text-blue-600">${data.route_summary}</a></div>` : ''
+    // load commutes for this listing (backend writes commute/<id>.json)
+    let commuteHtml = ''
+    try {
+      const cres = await fetch(`/commute/${listingId}.json`)
+      if (cres.ok) {
+        const cj = await cres.json()
+        const commutes = cj && cj.commutes ? cj.commutes : []
+        if (commutes.length > 0) {
+          commuteHtml = '<div class="mb-2"><div class="font-medium">Commutes</div>'
+          for (const c of commutes) {
+            const name = c.name || 'Commute'
+            const mins = c.result && c.result.summary && c.result.summary.duration_text ? c.result.summary.duration_text : (c.result && c.result.summary ? c.result.summary : '')
+            const station = c.result && c.result.nearest_station ? c.result.nearest_station.name || c.result.nearest_station : ''
+            const mapLink = `https://www.google.com/maps/dir/?origin=${encodeURIComponent(data.address||'')}&destination=${encodeURIComponent(c.destination||'')}&travelmode=${encodeURIComponent(c.mode||'transit')}`
+            commuteHtml += `<div class="text-sm mt-1"><a href="${mapLink}" target="_blank" class="text-blue-600 mr-2">${escapeHtml(name)}</a> <span class="text-gray-700">${escapeHtml(mins || '')}</span> <span class="text-xs text-gray-500">${escapeHtml(station || '')}</span></div>`
+          }
+          commuteHtml += '</div>'
+        }
+      }
+    } catch(e) { /* ignore, show nothing */ }
     const url = data.url ? `<a href="${data.url}" target="_blank" class="text-blue-600">View on domain.com.au</a>` : ''
 
     const tomState = (data.tom === true) ? 'yes' : (data.tom === false ? 'no' : 'unset')
@@ -72,8 +90,7 @@ async function loadDetail() {
         ${beds}
         ${baths}
         ${parking}
-        ${travel}
-        ${route}
+        ${commuteHtml}
         ${tomControls}
         ${mqControls}
         ${url}

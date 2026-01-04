@@ -5,6 +5,7 @@
 **/votes.json
 # Any listings/ directory (JSON files)
 **/listings/
+**/commute/
 
 # Explicit common locations
 /backend/listings/

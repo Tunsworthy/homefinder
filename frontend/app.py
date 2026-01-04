@@ -373,6 +373,17 @@ def api_comment_delete(listing_id, comment_id):
 def static_proxy(path):
     return send_from_directory('static', path)
 
+
+@app.route('/commute/<listing_id>.json')
+def commute_file(listing_id):
+    # Serve per-listing commute JSON written by the backend into DATA_DIR/commute/<id>.json
+    commute_dir = DATA_DIR / 'commute'
+    filename = f"{listing_id}.json"
+    file_path = commute_dir / filename
+    if file_path.exists():
+        return send_from_directory(str(commute_dir), filename)
+    return abort(404)
+
 print("DATA_DIR:", DATA_DIR)
 print("Exists:", DATA_DIR.exists())
 

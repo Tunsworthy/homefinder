@@ -120,14 +120,35 @@ function renderItem(item) {
   const el = document.createElement('div')
   el.className = 'block bg-white rounded shadow p-4 hover:shadow-md relative'
 
-  const img = item.image ? `<img src="${item.image}" class="w-full h-48 object-cover rounded mb-3">` : ''
+  const img = item.image ? `<img src="${item.image}" class="w-full h-48 object-cover rounded mb-3 cursor-pointer" data-carousel-id="${item.id}" data-image-index="0">` : ''
   const beds = item.bedrooms ? `<span class="mr-2">🛏 ${item.bedrooms}</span>` : ''
   const baths = item.bathrooms ? `<span class="mr-2">🛁 ${item.bathrooms}</span>` : ''
   const travelText = item.travel_duration_text || ''
   // travel link (opens google maps if available) and holds route_summary for tooltip
   const travel = travelText ? `<a href="${item.google_maps_url || item.url || '#'}" target="_blank" class="mr-2 text-sm text-blue-600 hover:underline travel-link" data-route="${(item.route_summary||'').replace(/"/g,'&quot;')}">🚆 ${travelText}</a>` : ''
   const domainLink = item.url ? `<a href="${item.url}" target="_blank" class="inline-block px-3 py-1 bg-gray-700 text-white rounded">🏠 Domain</a>` : ''
-
+  // Carousel HTML - only show if multiple images exist
+  let carouselHTML = ''
+  if (item.images && item.images.length > 1) {
+    carouselHTML = `
+      <div class="relative group">
+        <div class="carousel-container" data-carousel-id="${item.id}">
+          ${item.images.map((img, idx) => `
+            <img src="${img}" class="carousel-image w-full h-48 object-cover rounded mb-3 ${idx === 0 ? 'active' : ''}" data-carousel-id="${item.id}" data-image-index="${idx}" style="display: ${idx === 0 ? 'block' : 'none'}">
+          `).join('')}
+        </div>
+        <div class="absolute inset-y-0 left-0 flex items-center pl-2">
+          <button class="carousel-prev bg-black bg-opacity-50 text-white p-2 rounded-r-none rounded-l rounded text-sm" data-carousel-id="${item.id}">←</button>
+        </div>
+        <div class="absolute inset-y-0 right-0 flex items-center pr-2">
+          <button class="carousel-next bg-black bg-opacity-50 text-white p-2 rounded-l-none rounded-r rounded text-sm" data-carousel-id="${item.id}">→</button>
+        </div>
+        <div class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">${item.images.length} photos</div>
+      </div>
+    `
+  } else if (item.image) {
+    carouselHTML = `<img src="${item.image}" class="w-full h-48 object-cover rounded mb-3 cursor-pointer" data-carousel-id="${item.id}" data-image-index="0">`
+  }
   // Voting UI in card (compact): Tom and MQ yes/no buttons and a hidden comment area
   // build comments html: show newest 3 comments, then view more link if more exist
   const comments = item.comments || []
@@ -167,7 +188,7 @@ function renderItem(item) {
   `
 
   el.innerHTML = `
-    ${img}
+    ${carouselHTML}
     <div class="text-sm text-gray-600 mb-1">${item.address || ''}</div>
     <div class="flex items-center text-sm text-gray-700 mb-2">${beds}${baths}${travel}</div>
     <div class="text-sm text-gray-500">${item.price || ''}</div>
@@ -179,6 +200,30 @@ function renderItem(item) {
   `
 
   container.appendChild(el)
+  // Set up carousel for this specific item
+  setupCarousels()
+  
+  // Attach click event to carousel images to open popup
+  const carouselImages = el.querySelectorAll('.carousel-image')
+  carouselImages.forEach(img => {
+    img.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const imageUrl = img.src;
+      openImagePopup(imageUrl, item.images, parseInt(img.getAttribute('data-image-index')) || 0);
+    });
+  });
+  
+  // Also attach click to single images
+  const singleImages = el.querySelectorAll('img:not(.carousel-image)')
+  singleImages.forEach(img => {
+    img.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const imageUrl = img.src;
+      openImagePopup(imageUrl, item.images, parseInt(img.getAttribute('data-image-index')) || 0);
+    });
+  });
   // Prevent the anchor from navigating when interacting with form controls inside the card.
   // If a click/key event originates inside a comments area, stop the anchor default.
   el.addEventListener('click', (e) => {
@@ -470,6 +515,7 @@ function insertCommentIntoCard(cardEl, comment) {
       } catch (e) { console.error('delete failed', e) }
     })
   }
+  // don't attach a global image handler here — image click handlers are set in renderItem
 }
 
 function saveFilters(){
@@ -568,3 +614,191 @@ applyStoredToUI()
 populateTravelSelect()
 applyHideDuplexUI()
 resetAndLoad()
+
+// Carousel functionality
+function setupCarousels() {
+  document.querySelectorAll('.carousel-prev, .carousel-next').forEach(button => {
+    if (button.dataset.bound === 'true') return;
+    button.dataset.bound = 'true';
+
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const carouselId = button.dataset.carouselId;
+      const container = document.querySelector(
+        `.carousel-container[data-carousel-id="${carouselId}"]`
+      );
+      if (!container) return;
+
+      const allImgs = container.querySelectorAll('.carousel-image');
+      const currentImg = container.querySelector('.carousel-image.active');
+      if (!currentImg || allImgs.length === 0) return;
+
+      const currentIndex = Number(currentImg.dataset.imageIndex);
+      const isNext = button.classList.contains('carousel-next');
+
+      const newIndex = isNext
+        ? (currentIndex + 1) % allImgs.length
+        : (currentIndex - 1 + allImgs.length) % allImgs.length;
+
+      // hide current
+      currentImg.classList.remove('active');
+      currentImg.style.display = 'none';
+
+      // show next
+      allImgs[newIndex].classList.add('active');
+      allImgs[newIndex].style.display = 'block';
+    });
+  });
+}
+
+// Minimal popup implementation (clean restart)
+const popup = document.getElementById('popup');
+const popupContent = document.getElementById('popup-content');
+const popupImage = document.getElementById('popup-image');
+const popupPrev = document.getElementById('popup-prev');
+const popupNext = document.getElementById('popup-next');
+const popupCaption = document.getElementById('popup-caption');
+const popupZoomIn = document.getElementById('popup-zoom-in');
+const popupZoomOut = document.getElementById('popup-zoom-out');
+const closePopupBtn = document.getElementById('close-popup');
+
+let popupImages = [];
+let popupIndex = 0;
+let popupScale = 1;
+let popupTranslateX = 0;
+let popupTranslateY = 0;
+let isPanning = false;
+let panStartX = 0;
+let panStartY = 0;
+
+function openImagePopup(url, images, index) {
+  popupImages = Array.isArray(images) ? images.slice() : (url ? [url] : []);
+  popupIndex = (typeof index === 'number') ? index : (popupImages.indexOf(url) >= 0 ? popupImages.indexOf(url) : 0);
+  if (!popup) return;
+  if (popupImage) {
+    popupImage.src = popupImages[popupIndex] || url || '';
+    popupTranslateX = 0; popupTranslateY = 0;
+    popupImage.style.transform = `translate(0px, 0px) scale(1)`;
+    popupScale = 1;
+  }
+  popup.classList.remove('hidden');
+  updatePopupControls();
+  try { popup.focus(); } catch(e) {}
+}
+
+function closePopup() {
+  if (!popup) return;
+  popup.classList.add('hidden');
+  if (popupImage) { popupImage.src = ''; popupImage.style.transform = ''; }
+  popupImages = []; popupIndex = 0; popupScale = 1; popupTranslateX = 0; popupTranslateY = 0;
+}
+
+function updatePopupControls() {
+  if (popupCaption) popupCaption.textContent = (popupImages.length > 0) ? `${popupIndex + 1} / ${popupImages.length}` : '';
+  if (popupPrev) popupPrev.style.display = (popupImages.length > 1) ? 'block' : 'none';
+  if (popupNext) popupNext.style.display = (popupImages.length > 1) ? 'block' : 'none';
+}
+
+function showPrev() {
+  if (!popupImages || popupImages.length === 0) return;
+  popupIndex = (popupIndex - 1 + popupImages.length) % popupImages.length;
+  if (popupImage) { popupImage.src = popupImages[popupIndex]; popupTranslateX = 0; popupTranslateY = 0; popupImage.style.transform = `translate(0px, 0px) scale(1)`; popupScale = 1 }
+  updatePopupControls();
+}
+
+function showNext() {
+  if (!popupImages || popupImages.length === 0) return;
+  popupIndex = (popupIndex + 1) % popupImages.length;
+  if (popupImage) { popupImage.src = popupImages[popupIndex]; popupTranslateX = 0; popupTranslateY = 0; popupImage.style.transform = `translate(0px, 0px) scale(1)`; popupScale = 1 }
+  updatePopupControls();
+}
+
+if (closePopupBtn) closePopupBtn.addEventListener('click', (e) => { e.stopPropagation(); closePopup(); });
+if (popup) popup.addEventListener('click', (e) => { if (e.target === popup) closePopup(); });
+document.addEventListener('keydown', (e) => {
+  if (!popup || popup.classList.contains('hidden')) return;
+  if (e.key === 'Escape') closePopup();
+  else if (e.key === 'ArrowLeft') showPrev();
+  else if (e.key === 'ArrowRight') showNext();
+});
+
+if (popupPrev) popupPrev.addEventListener('click', (e) => { e.stopPropagation(); showPrev(); });
+if (popupNext) popupNext.addEventListener('click', (e) => { e.stopPropagation(); showNext(); });
+
+if (popupImage) {
+  // helper to apply combined translate + scale transform
+  function applyPopupTransform() {
+    if (!popupImage) return;
+    popupImage.style.transform = `translate(${popupTranslateX}px, ${popupTranslateY}px) scale(${popupScale})`;
+  }
+
+  popupImage.addEventListener('load', () => { updatePopupControls(); applyPopupTransform(); });
+
+  // wheel to zoom
+  popupImage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = -e.deltaY || e.wheelDelta || -e.detail;
+    const change = delta > 0 ? 0.1 : -0.1;
+    const prevScale = popupScale;
+    popupScale = Math.min(3, Math.max(1, popupScale + change));
+    // if scaling down to 1, reset translate
+    if (popupScale === 1) { popupTranslateX = 0; popupTranslateY = 0 }
+    // adjust translate to keep pointer as zoom center (optional simple approach)
+    applyPopupTransform();
+  }, {passive:false});
+
+  // double click to toggle zoom
+  popupImage.addEventListener('dblclick', (e) => {
+    const prev = popupScale;
+    popupScale = (popupScale === 1) ? 2 : 1;
+    if (popupScale === 1) { popupTranslateX = 0; popupTranslateY = 0 }
+    applyPopupTransform();
+  });
+
+  // mouse pan handlers
+  popupImage.addEventListener('mousedown', (e) => {
+    if (popupScale <= 1) return;
+    isPanning = true;
+    panStartX = e.clientX - popupTranslateX;
+    panStartY = e.clientY - popupTranslateY;
+    popupImage.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    popupTranslateX = e.clientX - panStartX;
+    popupTranslateY = e.clientY - panStartY;
+    applyPopupTransform();
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (!isPanning) return;
+    isPanning = false;
+    popupImage.style.cursor = 'grab';
+  });
+
+  // touch pan
+  popupImage.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1 && popupScale > 1) {
+      const t = e.touches[0];
+      isPanning = true;
+      panStartX = t.clientX - popupTranslateX;
+      panStartY = t.clientY - popupTranslateY;
+    }
+  }, {passive:false});
+  popupImage.addEventListener('touchmove', (e) => {
+    if (!isPanning) return;
+    const t = e.touches[0];
+    popupTranslateX = t.clientX - panStartX;
+    popupTranslateY = t.clientY - panStartY;
+    applyPopupTransform();
+    e.preventDefault();
+  }, {passive:false});
+  popupImage.addEventListener('touchend', (e) => { isPanning = false; });
+}
+
+if (popupZoomIn) popupZoomIn.addEventListener('click', (e) => { e.stopPropagation(); popupScale = Math.min(3, popupScale + 0.25); if (popupImage) popupImage.style.transform = `scale(${popupScale})`; });
+if (popupZoomOut) popupZoomOut.addEventListener('click', (e) => { e.stopPropagation(); popupScale = Math.max(1, popupScale - 0.25); if (popupImage) popupImage.style.transform = `scale(${popupScale})`; });

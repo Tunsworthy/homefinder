@@ -11,6 +11,7 @@ LISTINGS_DIR = DATA_DIR / 'listings'
 LISTING_IDS_FILE = DATA_DIR / 'listing_ids.json'
 VOTES_FILE = DATA_DIR / 'votes.json'
 
+
 PAGE_SIZE = 20
 
 
@@ -125,11 +126,17 @@ def api_listings():
                 continue
             if 'logo' in u.lower():
                 continue
+            if 'svg' in u.lower():
+                continue
             img = u
             break
         # fallback to first image if none matched
         if not img:
             img = (data.get('image_urls') or [None])[0]
+        # include all non-agent images for carousel
+        all_images = [u for u in (data.get('image_urls') or []) if u and 'contact' not in u.lower() and 'logo' not in u.lower() and 'svg' not in u.lower()]
+        if not all_images:
+            all_images = data.get('image_urls') or []
         # include latest comments (if any)
         comments = v.get('comments', []) if isinstance(v, dict) else []
         # sort comments by ts desc
@@ -144,6 +151,7 @@ def api_listings():
             'travel_duration_seconds': data.get('travel_duration_seconds'),
             'status': data.get('status') or 'unknown',
             'image': img,
+            'images': all_images,  # Add all images for carousel
             'url': data.get('url'),
             'google_maps_url': data.get('google_maps_url'),
             'tom': tom_vote,
@@ -256,6 +264,10 @@ def api_listing(listing_id):
             continue
         if 'contact' in u.lower():
             continue
+        if 'logo' in u.lower():
+            continue
+        if '21cf7f0d' in u.lower():
+            continue
         img = u
         break
     if not img:
@@ -361,6 +373,8 @@ def api_comment_delete(listing_id, comment_id):
 def static_proxy(path):
     return send_from_directory('static', path)
 
+print("DATA_DIR:", DATA_DIR)
+print("Exists:", DATA_DIR.exists())
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)

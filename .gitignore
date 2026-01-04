@@ -2,7 +2,7 @@
 # Any listing_ids.json file
 **/listing_ids.json
 **/travel_times.csv
-
+**/votes.json
 # Any listings/ directory (JSON files)
 **/listings/
 

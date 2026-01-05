@@ -57,7 +57,8 @@ BASE_URL = (
     "killara-nsw-2071,"
     "roseville-nsw-2069,"
     "gordon-nsw-2072,"
-    "croydon-park-nsw-2133"
+    "croydon-park-nsw-2133,"
+    "warrawee-nsw-2074"
     "&ptype=free-standing&bedrooms=3-any&bathrooms=2-any&price=0-2500000&excludeunderoffer=1"
 )
 

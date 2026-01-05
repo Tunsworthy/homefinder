@@ -17,6 +17,9 @@ let hideDuplexBtn = null
 let searchInput = null
 let filtersToggle = null
 let filtersPanel = null
+let sortMenuToggle = null
+let sortPanel = null
+let sortRankingBtn = null
 
 // currentFilter and currentSort will be loaded from localStorage below
 // persistent filters stored in localStorage
@@ -31,6 +34,8 @@ let currentExcludeMode = stored.exclude_voted_mode || 'none'
 let currentTravelMax = stored.travel_max || '55' // minutes or 'any'
 let currentHideDuplex = (typeof stored.hide_duplex === 'undefined') ? true : !!stored.hide_duplex
 let currentSearchTerm = stored.search || ''
+// allow ranking toggle alongside travel sort
+let currentRanking = !!stored.ranking
 function setToggleVisual(btn, on, color) {
   if (!btn) return
   // remove common on/off classes
@@ -61,6 +66,22 @@ function stripHtml(s) {
   return String(s).replace(/<[^>]*>/g, '')
 }
 
+// helper: try to extract travel minutes from a listing item
+function getTravelMinutes(item) {
+  try {
+    if (!item) return null
+    if (typeof item.travel_seconds === 'number') return Math.round(item.travel_seconds/60)
+    if (typeof item.travel_minutes === 'number') return item.travel_minutes
+    if (typeof item.travel_mins === 'number') return item.travel_mins
+    if (typeof item.travel_time === 'string') {
+      const m = parseInt(item.travel_time.replace(/[^0-9]/g,''))
+      if (!isNaN(m)) return m
+    }
+    if (item.travel && item.travel.duration && typeof item.travel.duration.value === 'number') return Math.round(item.travel.duration.value/60)
+  } catch(e){}
+  return null
+}
+
 async function loadMore() {
   if (loading) return
   loading = true
@@ -84,13 +105,27 @@ async function loadMore() {
       if (pt.includes('semi') || pt.includes('semi-detached') || pt.includes('semi detached')) return false
       return true
     })
+    // if ranking toggle enabled, apply client-side ranking sort
+    if (currentRanking) {
+      filteredItems.sort((a,b) => {
+        // if travel sort is also requested, preserve travel ordering as primary
+        if (currentSort === 'travel') {
+          const aT = getTravelMinutes(a) ?? Infinity
+          const bT = getTravelMinutes(b) ?? Infinity
+          if (aT !== bT) return aT - bT
+        }
+        const aScore = (Number(a.tom_score)||0) + (Number(a.mq_score)||0)
+        const bScore = (Number(b.tom_score)||0) + (Number(b.mq_score)||0)
+        return bScore - aScore
+      })
+    }
     // Remove client-side search filtering since server now handles it
     // const filteredItems = items.filter(it => { ... search logic ... })
     // update totals if provided
     if (typeof data.total !== 'undefined') {
-      totalCountEl.textContent = data.total
-      availableCountEl.textContent = data.available
-      soldCountEl.textContent = data.sold
+      if (totalCountEl) totalCountEl.textContent = data.total
+      if (availableCountEl) availableCountEl.textContent = data.available
+      if (soldCountEl) soldCountEl.textContent = data.sold
     }
     for (const item of filteredItems) renderItem(item)
     offset += filteredItems.length
@@ -916,7 +951,7 @@ function insertCommentIntoCard(cardEl, comment) {
 }
 
 function saveFilters(){
-  const obj = {status: currentFilter, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode, travel_max: currentTravelMax, hide_duplex: currentHideDuplex, search: currentSearchTerm}
+  const obj = {status: currentFilter, sort: currentSort, ranking: !!currentRanking, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode, travel_max: currentTravelMax, hide_duplex: currentHideDuplex, search: currentSearchTerm}
   try{ localStorage.setItem('hf_filters', JSON.stringify(obj)) }catch(e){}
 }
 
@@ -953,7 +988,7 @@ function initFilterHandlers() {
     const updateSortUI = () => {
       const on = currentSort === 'travel'
       setToggleVisual(sortTravelBtn, on, 'green')
-      sortTravelBtn.textContent = on ? 'Sort: travel' : 'Sort by travel time'
+      sortTravelBtn.textContent = on ? 'Travel Time (On)' : 'Travel Time (Off)'
     }
     updateSortUI()
     sortTravelBtn.addEventListener('click', () => { currentSort = currentSort === 'travel' ? 'none' : 'travel'; saveFilters(); resetAndLoad(); updateSortUI() })
@@ -1008,7 +1043,7 @@ if (sortTravelBtn) {
   const updateSortUI = () => {
     const on = currentSort === 'travel'
     setToggleVisual(sortTravelBtn, on, 'green')
-    sortTravelBtn.textContent = on ? 'Sort: travel' : 'Sort by travel time'
+    sortTravelBtn.textContent = on ? 'Travel Time (On)' : 'Travel Time (Off)'
   }
   updateSortUI()
   sortTravelBtn.addEventListener('click', () => { currentSort = currentSort === 'travel' ? 'none' : 'travel'; saveFilters(); resetAndLoad(); updateSortUI() })
@@ -1046,6 +1081,7 @@ if (filterExcludeSelect) {
 function applyStoredToUI(){
   try {
     if (sortTravelBtn) { setToggleVisual(sortTravelBtn, currentSort === 'travel', 'green'); sortTravelBtn.textContent = currentSort === 'travel' ? 'Sort: travel' : 'Sort by travel time' }
+    if (sortRankingBtn) { setToggleVisual(sortRankingBtn, !!currentRanking, 'green'); sortRankingBtn.textContent = currentRanking ? 'Ranking (On)' : 'Ranking (Off)' }
     if (filterTomYesBtn) {
       if (currentTomFilter === 'yes') setToggleVisual(filterTomYesBtn, true, 'green')
       else if (currentTomFilter === 'no') setToggleVisual(filterTomYesBtn, true, 'red')
@@ -1081,6 +1117,9 @@ document.addEventListener('DOMContentLoaded', () => {
   searchInput = document.getElementById('searchInput')
   filtersToggle = document.getElementById('filters-toggle')
   filtersPanel = document.getElementById('filters-panel')
+  sortMenuToggle = document.getElementById('sort-menu-toggle')
+  sortPanel = document.getElementById('sort-panel')
+  sortRankingBtn = document.getElementById('sort-ranking')
 
   try { applyStoredToUI() } catch(e) { console.error('applyStoredToUI failed', e) }
   try { populateTravelSelect() } catch(e) { console.error('populateTravelSelect failed', e) }
@@ -1090,6 +1129,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (filtersToggle && filtersPanel) {
     filtersToggle.addEventListener('click', (ev) => {
       ev.stopPropagation();
+      // close sort panel if open
+      try { if (sortPanel && !sortPanel.classList.contains('hidden')) { sortPanel.classList.add('hidden'); if (sortMenuToggle) sortMenuToggle.setAttribute('aria-expanded','false') } } catch(e){}
       const expanded = filtersToggle.getAttribute('aria-expanded') === 'true'
       filtersToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true')
       filtersPanel.classList.toggle('hidden')
@@ -1101,6 +1142,45 @@ document.addEventListener('DOMContentLoaded', () => {
         try { filtersToggle.setAttribute('aria-expanded','false') } catch(e){}
       }
     })
+  }
+  // sort menu toggle (header)
+  if (sortMenuToggle && sortPanel) {
+    sortMenuToggle.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      // close filters panel if open
+      try { if (filtersPanel && !filtersPanel.classList.contains('hidden')) { filtersPanel.classList.add('hidden'); if (filtersToggle) filtersToggle.setAttribute('aria-expanded','false') } } catch(e){}
+      const expanded = sortMenuToggle.getAttribute('aria-expanded') === 'true'
+      sortMenuToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true')
+      sortPanel.classList.toggle('hidden')
+    })
+    document.addEventListener('click', (e) => {
+      if (!sortPanel.contains(e.target) && !sortMenuToggle.contains(e.target)) {
+        sortPanel.classList.add('hidden')
+        try { sortMenuToggle.setAttribute('aria-expanded','false') } catch(e){}
+      }
+    })
+  }
+  // sort panel buttons
+  function updateSortPanelUI(){
+    try {
+      if (sortTravelBtn) setToggleVisual(sortTravelBtn, currentSort === 'travel', 'green')
+      if (sortTravelBtn) sortTravelBtn.textContent = currentSort === 'travel' ? 'Travel Time (On)' : 'Travel Time (Off)'
+      if (sortRankingBtn) setToggleVisual(sortRankingBtn, !!currentRanking, 'green')
+      if (sortRankingBtn) sortRankingBtn.textContent = currentRanking ? 'Ranking (On)' : 'Ranking (Off)'
+    } catch(e){}
+  }
+  if (sortRankingBtn) {
+    sortRankingBtn.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      currentRanking = !currentRanking
+      saveFilters(); resetAndLoad(); updateSortPanelUI()
+    })
+  }
+  // ensure initial visual state
+  updateSortPanelUI()
+  // ensure travel button updates the sort panel visuals when toggled elsewhere
+  if (sortTravelBtn) {
+    sortTravelBtn.addEventListener('click', (ev) => { try{ updateSortPanelUI() }catch(e){} })
   }
   try { resetAndLoad() } catch(e) { console.error('resetAndLoad failed', e) }
 })

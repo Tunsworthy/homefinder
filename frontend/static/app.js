@@ -1,20 +1,22 @@
 let offset = 0
 const limit = 20
 let loading = false
-const container = document.getElementById('listings')
-const loadingEl = document.getElementById('loading')
+let container = null
+let loadingEl = null
 
-const totalCountEl = document.getElementById('total-count')
-const availableCountEl = document.getElementById('available-count')
-const soldCountEl = document.getElementById('sold-count')
-const hideSoldBtn = document.getElementById('hide-sold-btn')
-const sortTravelBtn = document.getElementById('sort-travel')
-const filterTomYesBtn = document.getElementById('filter-tom-yes')
-const filterMqYesBtn = document.getElementById('filter-mq-yes')
-const filterExcludeSelect = document.getElementById('exclude-voted-select')
-const filterTravelSelect = document.getElementById('filter-travel-max')
-const hideDuplexBtn = document.getElementById('hide-duplex-btn')
-const searchInput = document.getElementById('searchInput')
+let totalCountEl = null
+let availableCountEl = null
+let soldCountEl = null
+let hideSoldBtn = null
+let sortTravelBtn = null
+let filterTomYesBtn = null
+let filterMqYesBtn = null
+let filterExcludeSelect = null
+let filterTravelSelect = null
+let hideDuplexBtn = null
+let searchInput = null
+let filtersToggle = null
+let filtersPanel = null
 
 // currentFilter and currentSort will be loaded from localStorage below
 // persistent filters stored in localStorage
@@ -28,54 +30,35 @@ let currentSort = stored.sort || 'travel'
 let currentExcludeMode = stored.exclude_voted_mode || 'none'
 let currentTravelMax = stored.travel_max || '55' // minutes or 'any'
 let currentHideDuplex = (typeof stored.hide_duplex === 'undefined') ? true : !!stored.hide_duplex
-// search term state
 let currentSearchTerm = stored.search || ''
-
-// filters panel toggle
-const filtersToggleBtn = document.getElementById('filters-toggle')
-const filtersPanel = document.getElementById('filters-panel')
-if (filtersToggleBtn && filtersPanel) {
-  // hide panel by default on small screens; keep visible on large
-  filtersToggleBtn.addEventListener('click', (e) => {
-    const expanded = filtersToggleBtn.getAttribute('aria-expanded') === 'true'
-    filtersToggleBtn.setAttribute('aria-expanded', (!expanded).toString())
-    filtersPanel.classList.toggle('hidden')
-  })
-}
-
-// simple html escaper for comment text
-function escapeHtml(str){
-  if(!str) return ''
-  return String(str).replace(/[&<>"'`\/]/g, function(s){
-    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;","`":"&#96;","/":"\/"}[s]) || s
-  })
-}
-
-// strip HTML tags from a string (simple)
-function stripHtml(input){
-  if(!input) return ''
-  try{ return String(input).replace(/<[^>]*>/g, ' ').replace(/\s+/g,' ').trim() }catch(e){ return String(input) }
-}
-
-// helper to apply consistent toggle visuals
-function setToggleVisual(btn, on, color){
-  if(!btn) return
-  // remove known color classes
-  const colors = ['green','blue','yellow','purple','red','indigo']
-  const offClasses = ['bg-gray-100','text-gray-800']
-  btn.classList.remove(...offClasses)
-  btn.classList.remove('bg-green-600','bg-blue-600','bg-yellow-600','bg-purple-600','bg-red-600','bg-indigo-600','text-white')
-  if(on){
+function setToggleVisual(btn, on, color) {
+  if (!btn) return
+  // remove common on/off classes
+  btn.classList.remove('bg-green-600','bg-red-600','bg-gray-200','bg-gray-100','text-white','text-gray-800')
+  if (on) {
     let className = 'bg-green-600'
-    if(color === 'blue') className = 'bg-blue-600'
-    else if(color === 'yellow') className = 'bg-yellow-600'
-    else if(color === 'purple') className = 'bg-purple-600'
-    else if(color === 'red') className = 'bg-red-600'
-    else if(color === 'indigo') className = 'bg-indigo-600'
+    if (color === 'blue') className = 'bg-blue-600'
+    else if (color === 'yellow') className = 'bg-yellow-600'
+    else if (color === 'purple') className = 'bg-purple-600'
+    else if (color === 'red') className = 'bg-red-600'
+    else if (color === 'indigo') className = 'bg-indigo-600'
     btn.classList.add(className,'text-white')
   } else {
-    btn.classList.add('bg-gray-100','text-gray-800')
+    btn.classList.add('bg-gray-200','text-gray-800')
   }
+}
+
+// escape HTML for safe insertion into innerHTML
+function escapeHtml(s) {
+  if (s === null || typeof s === 'undefined') return ''
+  const str = String(s)
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
+// remove HTML tags from a string
+function stripHtml(s) {
+  if (s === null || typeof s === 'undefined') return ''
+  return String(s).replace(/<[^>]*>/g, '')
 }
 
 async function loadMore() {
@@ -163,20 +146,30 @@ function renderItem(item) {
   } else {
     for (let c of comments.slice(0,3)) {
       const who = c.person === 'tom' ? 'Tom' : 'MQ'
-      const snippet = `<div class="comment-item text-sm border rounded p-2 mb-1 flex items-start justify-between" data-cid="${c.id}"><div><strong>${who}:</strong> <span class="comment-text">${escapeHtml(c.text)}</span> <div class="text-xs text-gray-400">${new Date(c.ts*1000).toLocaleString()}</div></div><div class="ml-3 flex items-center"><button class="edit-comment text-xs ml-2 px-2 py-1" title="Edit">✏️</button><button class="del-comment text-xs ml-1 px-2 py-1 text-red-500" title="Delete">🗑️</button></div></div>`
+      const snippet = `<div class="comment-item text-sm border rounded p-2 mb-1 flex items-start justify-between" data-cid="${c.id}"><div class="comment-body flex-1 min-w-0"><strong>${who}:</strong><div class="comment-main min-w-0"><span class="comment-text ml-2 block break-words">${escapeHtml(c.text).replace(/\n/g,'<br>')}</span></div><div class="comment-ts text-xs text-gray-400 mt-1">${new Date(c.ts*1000).toLocaleString()}</div></div><div class="ml-3 flex items-center flex-shrink-0"><button class="edit-comment text-xs ml-2 px-2 py-1" title="Edit">✏️</button><button class="del-comment text-xs ml-1 px-2 py-1 text-red-500" title="Delete">🗑️</button></div></div>`
       commentsHtml += snippet
     }
   }
   const moreLink = (item.comments && item.comments.length > 3) ? `<div class="mt-1"><a href="/listing/${item.id}" class="text-sm text-blue-600">View More</a></div>` : ''
 
   const voteUi = `
-    <div class="mt-2 flex items-center space-x-3">
-      <div class="text-sm font-medium">Tom</div>
-      <button data-id="${item.id}" data-person="tom" data-val="true" aria-pressed="${item.tom===true}" class="vote-btn tom-yes px-3 py-1 rounded-full ${item.tom===true? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}">Yes</button>
-      <button data-id="${item.id}" data-person="tom" data-val="false" aria-pressed="${item.tom===false}" class="vote-btn tom-no px-3 py-1 rounded-full ${item.tom===false? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-800'}">No</button>
-      <div class="text-sm ml-3">MQ</div>
-      <button data-id="${item.id}" data-person="mq" data-val="true" aria-pressed="${item.mq===true}" class="vote-btn mq-yes px-3 py-1 rounded-full ${item.mq===true? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}">Yes</button>
-      <button data-id="${item.id}" data-person="mq" data-val="false" aria-pressed="${item.mq===false}" class="vote-btn mq-no px-3 py-1 rounded-full ${item.mq===false? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-800'}">No</button>
+    <div class="mt-2">
+      <div class="flex items-center space-x-3 mb-2">
+        <div class="w-20 text-sm font-medium flex-shrink-0">Tom</div>
+        <div class="flex items-center space-x-2">
+          <button data-id="${item.id}" data-person="tom" data-val="true" aria-pressed="${item.tom===true}" class="vote-btn tom-yes inline-block px-3 py-1 rounded ${item.tom===true? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}">Yes</button>
+          <button data-id="${item.id}" data-person="tom" data-val="false" aria-pressed="${item.tom===false}" class="vote-btn tom-no inline-block px-3 py-1 rounded ${item.tom===false? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-800'}">No</button>
+        </div>
+        <div class="tom-score-container ml-3" data-id="${item.id}"></div>
+      </div>
+      <div class="flex items-center space-x-3 mb-2">
+        <div class="w-20 text-sm font-medium flex-shrink-0">MQ</div>
+        <div class="flex items-center space-x-2">
+          <button data-id="${item.id}" data-person="mq" data-val="true" aria-pressed="${item.mq===true}" class="vote-btn mq-yes inline-block px-3 py-1 rounded ${item.mq===true? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}">Yes</button>
+          <button data-id="${item.id}" data-person="mq" data-val="false" aria-pressed="${item.mq===false}" class="vote-btn mq-no inline-block px-3 py-1 rounded ${item.mq===false? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-800'}">No</button>
+        </div>
+        <div class="mq-score-container ml-3" data-id="${item.id}"></div>
+      </div>
     </div>
     <div class="comments-block mt-2" data-id="${item.id}">
       <div class="font-medium text-sm">Comments</div>
@@ -208,6 +201,55 @@ function renderItem(item) {
   container.appendChild(el)
   // Set up carousel for this specific item
   setupCarousels()
+
+  // render score selectors for Tom and MQ (1-5 circles) and wire handlers
+  const tomScoreContainer = el.querySelector('.tom-score-container')
+  const mqScoreContainer = el.querySelector('.mq-score-container')
+  function buildScoreHtml(person, currentScore) {
+    let html = '<div class="score-select inline-flex items-center space-x-1">'
+    for (let s = 1; s <= 5; s++) {
+      const sel = (currentScore && Number(currentScore) === s) ? 'bg-yellow-500 text-white' : 'bg-white'
+      html += `<div class="score-circle w-6 h-6 rounded-full border flex items-center justify-center text-xs cursor-pointer ${sel}" data-score="${s}" data-person="${person}" title="${s}">${s}</div>`
+    }
+    html += '</div>'
+    return html
+  }
+  if (tomScoreContainer) {
+    tomScoreContainer.innerHTML = buildScoreHtml('tom', item.tom_score)
+    tomScoreContainer.style.display = (item.tom === true) ? 'inline-block' : 'none'
+  }
+  if (mqScoreContainer) {
+    mqScoreContainer.innerHTML = buildScoreHtml('mq', item.mq_score)
+    mqScoreContainer.style.display = (item.mq === true) ? 'inline-block' : 'none'
+  }
+
+  // click handlers for score circles
+  function attachScoreHandlers(parentEl, person) {
+    if (!parentEl) return
+    parentEl.querySelectorAll('.score-circle').forEach(sc => {
+      sc.addEventListener('click', async (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        const score = Number(sc.getAttribute('data-score'))
+        const id = item.id
+        const payload = {}
+        if (person === 'tom') { payload.tom = true; payload.tom_score = score }
+        else { payload.mq = true; payload.mq_score = score }
+        try {
+          const resp = await fetch(`/api/listing/${id}/vote`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)})
+          const j = await resp.json().catch(()=>null)
+          if (j && j.ok) {
+            // update UI: highlight selected
+            parentEl.querySelectorAll('.score-circle').forEach(c => c.classList.remove('bg-yellow-500','text-white'))
+            const sel = parentEl.querySelector(`.score-circle[data-score="${score}"]`)
+            if (sel) sel.classList.add('bg-yellow-500','text-white')
+          }
+        } catch (e) { console.error('score save failed', e) }
+      })
+    })
+  }
+  // attach initial handlers
+  attachScoreHandlers(tomScoreContainer, 'tom')
+  attachScoreHandlers(mqScoreContainer, 'mq')
   
   // Attach click event to carousel images to open popup
   const carouselImages = el.querySelectorAll('.carousel-image')
@@ -281,14 +323,46 @@ function renderItem(item) {
         const mqYes = card.querySelector('.mq-yes')
         const mqNo = card.querySelector('.mq-no')
         if (tomYes && tomNo) {
-          if (tomVal === true) { tomYes.classList.add('bg-green-600','text-white'); tomNo.classList.remove('bg-red-600','text-white'); tomYes.setAttribute('aria-pressed','true'); tomNo.setAttribute('aria-pressed','false') }
-          else if (tomVal === false) { tomNo.classList.add('bg-red-600','text-white'); tomYes.classList.remove('bg-green-600','text-white'); tomNo.setAttribute('aria-pressed','true'); tomYes.setAttribute('aria-pressed','false') }
-          else { tomYes.classList.remove('bg-green-600','text-white'); tomNo.classList.remove('bg-red-600','text-white'); tomYes.setAttribute('aria-pressed','false'); tomNo.setAttribute('aria-pressed','false') }
+          setToggleVisual(tomYes, tomVal === true, 'green')
+          setToggleVisual(tomNo, tomVal === false, 'red')
+          tomYes.setAttribute('aria-pressed', tomVal === true ? 'true' : 'false')
+          tomNo.setAttribute('aria-pressed', tomVal === false ? 'true' : 'false')
         }
         if (mqYes && mqNo) {
-          if (mqVal === true) { mqYes.classList.add('bg-green-600','text-white'); mqNo.classList.remove('bg-red-600','text-white'); mqYes.setAttribute('aria-pressed','true'); mqNo.setAttribute('aria-pressed','false') }
-          else if (mqVal === false) { mqNo.classList.add('bg-red-600','text-white'); mqYes.classList.remove('bg-green-600','text-white'); mqNo.setAttribute('aria-pressed','true'); mqYes.setAttribute('aria-pressed','false') }
-          else { mqYes.classList.remove('bg-green-600','text-white'); mqNo.classList.remove('bg-red-600','text-white'); mqYes.setAttribute('aria-pressed','false'); mqNo.setAttribute('aria-pressed','false') }
+          setToggleVisual(mqYes, mqVal === true, 'green')
+          setToggleVisual(mqNo, mqVal === false, 'red')
+          mqYes.setAttribute('aria-pressed', mqVal === true ? 'true' : 'false')
+          mqNo.setAttribute('aria-pressed', mqVal === false ? 'true' : 'false')
+        }
+        // show/hide and initialize score selectors when Yes/No toggled
+        try {
+          const tomScoreContainer = card.querySelector('.tom-score-container')
+          const mqScoreContainer = card.querySelector('.mq-score-container')
+          if (typeof tomVal !== 'undefined' && tomScoreContainer) {
+            if (tomVal === true) {
+              // ensure HTML present
+              if (!tomScoreContainer.innerHTML || tomScoreContainer.innerHTML.trim() === '') {
+                tomScoreContainer.innerHTML = buildScoreHtml('tom', (j && j.tom_score) ? j.tom_score : null)
+                attachScoreHandlers(tomScoreContainer, 'tom')
+              }
+              tomScoreContainer.style.display = 'inline-block'
+            } else {
+              tomScoreContainer.style.display = 'none'
+            }
+          }
+          if (typeof mqVal !== 'undefined' && mqScoreContainer) {
+            if (mqVal === true) {
+              if (!mqScoreContainer.innerHTML || mqScoreContainer.innerHTML.trim() === '') {
+                mqScoreContainer.innerHTML = buildScoreHtml('mq', (j && j.mq_score) ? j.mq_score : null)
+                attachScoreHandlers(mqScoreContainer, 'mq')
+              }
+              mqScoreContainer.style.display = 'inline-block'
+            } else {
+              mqScoreContainer.style.display = 'none'
+            }
+          }
+        } catch (e) {
+          /* non-fatal */
         }
       } catch (e) {
         console.error('vote failed', e)
@@ -347,22 +421,111 @@ function renderItem(item) {
       ev.preventDefault(); ev.stopPropagation();
       const itemDiv = b.closest('.comment-item')
       const cid = itemDiv.getAttribute('data-cid')
-      const old = itemDiv.querySelector('.comment-text') ? itemDiv.querySelector('.comment-text').textContent : ''
-      const newText = prompt('Edit comment', old)
-      if (newText === null) return
-      try {
-        const resp = await fetch(`/api/listing/${item.id}/comment/${cid}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text: newText})})
-        const j = await resp.json().catch(()=>null)
-        if (j && j.ok) {
-          // update DOM inline
-          const txtEl = itemDiv.querySelector('.comment-text')
-          if (txtEl) txtEl.textContent = newText
-          const tsEl = itemDiv.querySelector('.text-xs')
-          if (tsEl) tsEl.textContent = new Date().toLocaleString()
-        } else {
-          resetAndLoad()
+      const txtEl = itemDiv.querySelector('.comment-text')
+      if (!txtEl) return
+      // inline contentEditable edit (single-line visual)
+      if (b.dataset.editing === 'true') {
+        // save
+        const newText = txtEl.innerText || ''
+        try {
+          const resp = await fetch(`/api/listing/${item.id}/comment/${cid}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text: newText})})
+          const j = await resp.json().catch(()=>null)
+          if (j && j.ok) {
+            txtEl.innerHTML = escapeHtml(newText).replace(/\n/g, '<br>')
+            const tsEl = itemDiv.querySelector('.text-xs')
+            if (tsEl) tsEl.textContent = new Date().toLocaleString()
+          } else {
+            resetAndLoad()
+          }
+        } catch (e) { console.error('edit failed', e) }
+        // teardown editing state
+        txtEl.contentEditable = 'false'
+        txtEl.classList.remove('inline-editing')
+        txtEl.style.display = ''
+        txtEl.style.whiteSpace = ''
+        txtEl.style.overflowX = ''
+        txtEl.style.textOverflow = ''
+        txtEl.style.maxWidth = ''
+        txtEl.style.borderBottom = ''
+        txtEl.style.padding = ''
+        // remove handler if present
+        try { txtEl.removeEventListener('keydown', txtEl._inlineKeyHandler) } catch(e){ }
+        delete txtEl._inlineKeyHandler
+        b.dataset.editing = 'false'
+        b.textContent = '✏️'
+      } else {
+        // enter edit mode: make the existing span editable inline
+        if (itemDiv.querySelector('.inline-editing')) return
+        b.dataset.editing = 'true'
+        b.textContent = '✓'
+        txtEl.dataset.origText = txtEl.innerText || ''
+        txtEl.contentEditable = 'true'
+        txtEl.classList.add('inline-editing')
+        // inline styling to avoid a large box and prevent wrapping
+        const leftDiv = txtEl.parentNode
+        if (leftDiv) {
+          leftDiv._prevDisplay = leftDiv.style.display
+          leftDiv._prevOverflow = leftDiv.style.overflow
+          leftDiv.style.display = 'flex'
+          leftDiv.style.alignItems = 'center'
+          leftDiv.style.gap = '8px'
+          leftDiv.style.overflow = 'hidden'
         }
-      } catch (e) { console.error('edit failed', e) }
+        txtEl.style.display = 'inline-block'
+        // allow wrapping during edit so long comments don't force a single-line overflow
+        txtEl.style.whiteSpace = 'normal'
+        txtEl.style.wordBreak = 'break-word'
+        txtEl.style.overflowWrap = 'break-word'
+        txtEl.style.overflowX = 'auto'
+        // don't apply ellipsis while editing
+        txtEl.style.textOverflow = ''
+        // allow the comment text to flex and not be artificially capped
+        txtEl.style.flex = '1 1 auto'
+        txtEl.style.minWidth = '0'
+        txtEl.style.borderBottom = '1px dashed rgba(148,163,184,0.8)'
+        txtEl.style.padding = '0 4px'
+        txtEl.style.verticalAlign = 'middle'
+        const tsEl = leftDiv ? leftDiv.querySelector('.text-xs') : null
+        if (tsEl) { tsEl.style.flex = '0 0 auto'; tsEl.style.marginLeft = '8px' }
+        // key handler: Enter saves, Escape cancels (prevent newline)
+        const keyHandler = (ke) => {
+          if (ke.key === 'Enter' && !ke.shiftKey) {
+            ke.preventDefault(); ke.stopPropagation(); b.click();
+          } else if (ke.key === 'Escape') {
+            ke.preventDefault(); ke.stopPropagation();
+            txtEl.innerHTML = escapeHtml(txtEl.dataset.origText || '').replace(/\n/g,'<br>')
+            txtEl.contentEditable = 'false'
+            txtEl.classList.remove('inline-editing')
+            txtEl.style.display = ''
+            txtEl.style.whiteSpace = ''
+            txtEl.style.wordBreak = ''
+            txtEl.style.overflowWrap = ''
+            txtEl.style.overflowX = ''
+            txtEl.style.textOverflow = ''
+            txtEl.style.flex = ''
+            txtEl.style.minWidth = ''
+            txtEl.style.borderBottom = ''
+            txtEl.style.padding = ''
+            // restore parent left div layout if modified
+            try { const left = txtEl.parentNode; if (left && left._prevDisplay !== undefined) { left.style.display = left._prevDisplay || ''; left.style.alignItems = ''; left.style.gap = ''; if (left._prevOverflow !== undefined) { left.style.overflow = left._prevOverflow || '' } const ts = left.querySelector('.text-xs'); if (ts) { ts.style.flex = ''; ts.style.marginLeft = '' } delete left._prevDisplay; delete left._prevOverflow } } catch(e) {}
+            try { txtEl.removeEventListener('keydown', txtEl._inlineKeyHandler) } catch(e){}
+            delete txtEl._inlineKeyHandler
+            b.dataset.editing = 'false'
+            b.textContent = '✏️'
+          }
+        }
+        txtEl._inlineKeyHandler = keyHandler
+        txtEl.addEventListener('keydown', keyHandler)
+        txtEl.focus()
+        try {
+          const range = document.createRange()
+          range.selectNodeContents(txtEl)
+          range.collapse(false)
+          const sel = window.getSelection()
+          sel.removeAllRanges()
+          sel.addRange(range)
+        } catch(e){}
+      }
     })
   })
 
@@ -583,7 +746,7 @@ window.addEventListener('scroll', () => {
   if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 300) {
     loadMore()
   }
-})
+},{passive: true})
 
 // initial load
 function resetAndLoad() {
@@ -632,7 +795,7 @@ function insertCommentIntoCard(cardEl, comment) {
   const wrapper = document.createElement('div')
   wrapper.className = 'comment-item text-sm border rounded p-2 mb-1 flex items-start justify-between'
   wrapper.setAttribute('data-cid', comment.id)
-  wrapper.innerHTML = `<div><strong>${who}:</strong> <span class="comment-text">${escapeHtml(comment.text)}</span> <div class="text-xs text-gray-400">${new Date(comment.ts*1000).toLocaleString()}</div></div><div class="ml-3 flex items-center"><button class="edit-comment text-xs ml-2 px-2 py-1" title="Edit">✏️</button><button class="del-comment text-xs ml-1 px-2 py-1 text-red-500" title="Delete">🗑️</button></div>`
+  wrapper.innerHTML = `<div class="comment-body flex-1 min-w-0"><strong>${who}:</strong><div class="comment-main min-w-0"><span class="comment-text ml-2 block break-words">${escapeHtml(comment.text).replace(/\n/g,'<br>')}</span></div><div class="comment-ts text-xs text-gray-400 mt-1">${new Date(comment.ts*1000).toLocaleString()}</div></div><div class="ml-3 flex items-center flex-shrink-0"><button class="edit-comment text-xs ml-2 px-2 py-1" title="Edit">✏️</button><button class="del-comment text-xs ml-1 px-2 py-1 text-red-500" title="Delete">🗑️</button></div>`
   // insert at top
   if (list.firstChild) list.insertBefore(wrapper, list.firstChild)
   else list.appendChild(wrapper)
@@ -647,22 +810,93 @@ function insertCommentIntoCard(cardEl, comment) {
   if (editBtn) {
     editBtn.addEventListener('click', async (ev) => {
       ev.preventDefault(); ev.stopPropagation();
-      const old = wrapper.querySelector('.comment-text') ? wrapper.querySelector('.comment-text').textContent : ''
-      const newText = prompt('Edit comment', old)
-      if (newText === null) return
-      try {
-        const cid = wrapper.getAttribute('data-cid')
-        const resp = await fetch(`/api/listing/${cardEl.querySelector('.vote-btn')?.getAttribute('data-id') || ''}/comment/${cid}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text: newText})})
-        const j = await resp.json().catch(()=>null)
-        if (j && j.ok) {
-          const txtEl = wrapper.querySelector('.comment-text')
-          if (txtEl) txtEl.textContent = newText
-          const tsEl = wrapper.querySelector('.text-xs')
-          if (tsEl) tsEl.textContent = new Date().toLocaleString()
-        } else {
-          resetAndLoad()
+      const txtEl = wrapper.querySelector('.comment-text')
+      if (!txtEl) return
+      const cid = wrapper.getAttribute('data-cid')
+      const listingId = cardEl.querySelector('.vote-btn')?.getAttribute('data-id') || ''
+      // toggle edit/save
+      if (editBtn.dataset.editing === 'true') {
+        // save
+        const newText = txtEl.innerText || ''
+        try {
+          const resp = await fetch(`/api/listing/${listingId}/comment/${cid}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text: newText})})
+          const j = await resp.json().catch(()=>null)
+          if (j && j.ok) {
+            txtEl.innerHTML = escapeHtml(newText).replace(/\n/g, '<br>')
+            const tsEl = wrapper.querySelector('.text-xs')
+            if (tsEl) tsEl.textContent = new Date().toLocaleString()
+          } else {
+            resetAndLoad()
+          }
+        } catch (e) { console.error('edit failed', e) }
+        txtEl.contentEditable = 'false'
+        txtEl.classList.remove('inline-editing')
+        txtEl.style.display = ''
+        txtEl.style.maxWidth = ''
+        txtEl.style.whiteSpace = ''
+        editBtn.dataset.editing = 'false'
+        editBtn.textContent = '✏️'
+      } else {
+        // enter edit mode: inline contentEditable (single-line visual)
+        if (wrapper.querySelector('.inline-editing')) return
+        editBtn.dataset.editing = 'true'
+        editBtn.textContent = '✓'
+        txtEl.dataset.origText = txtEl.innerText || ''
+        txtEl.contentEditable = 'true'
+        txtEl.classList.add('inline-editing')
+        const leftDiv = txtEl.parentNode
+        if (leftDiv) {
+          leftDiv._prevDisplay = leftDiv.style.display
+          leftDiv._prevOverflow = leftDiv.style.overflow
+          leftDiv.style.display = 'flex'
+          leftDiv.style.alignItems = 'center'
+          leftDiv.style.gap = '8px'
+          leftDiv.style.overflow = 'hidden'
         }
-      } catch (e) { console.error('edit failed', e) }
+        txtEl.style.display = 'inline-block'
+        // allow wrapping during edit so long comments don't force a single-line overflow
+        txtEl.style.whiteSpace = 'normal'
+        txtEl.style.wordBreak = 'break-word'
+        txtEl.style.overflowWrap = 'break-word'
+        txtEl.style.overflowX = 'auto'
+        // don't apply ellipsis while editing
+        txtEl.style.textOverflow = ''
+        txtEl.style.flex = '1 1 auto'
+        txtEl.style.minWidth = '0'
+        txtEl.style.borderBottom = '1px dashed rgba(148,163,184,0.8)'
+        txtEl.style.padding = '0 4px'
+        txtEl.style.verticalAlign = 'middle'
+        const tsEl = leftDiv ? leftDiv.querySelector('.text-xs') : null
+        if (tsEl) { tsEl.style.flex = '0 0 auto'; tsEl.style.marginLeft = '8px' }
+        const keyHandler = (ke) => {
+          if (ke.key === 'Enter' && !ke.shiftKey) { ke.preventDefault(); ke.stopPropagation(); editBtn.click(); }
+          else if (ke.key === 'Escape') {
+            ke.preventDefault(); ke.stopPropagation();
+            txtEl.innerHTML = escapeHtml(txtEl.dataset.origText || '').replace(/\n/g,'<br>')
+            txtEl.contentEditable = 'false'
+            txtEl.classList.remove('inline-editing')
+            txtEl.style.display = ''
+            txtEl.style.whiteSpace = ''
+            txtEl.style.wordBreak = ''
+            txtEl.style.overflowWrap = ''
+            txtEl.style.overflowX = ''
+            txtEl.style.textOverflow = ''
+            txtEl.style.flex = ''
+            txtEl.style.minWidth = ''
+            txtEl.style.borderBottom = ''
+            txtEl.style.padding = ''
+            try { const left = txtEl.parentNode; if (left && left._prevDisplay !== undefined) { left.style.display = left._prevDisplay || ''; left.style.alignItems = ''; left.style.gap = ''; if (left._prevOverflow !== undefined) { left.style.overflow = left._prevOverflow || '' } const ts = left.querySelector('.text-xs'); if (ts) { ts.style.flex = ''; ts.style.marginLeft = '' } delete left._prevDisplay; delete left._prevOverflow } } catch(e) {}
+            try { txtEl.removeEventListener('keydown', txtEl._inlineKeyHandler) } catch(e){}
+            delete txtEl._inlineKeyHandler
+            editBtn.dataset.editing = 'false'
+            editBtn.textContent = '✏️'
+          }
+        }
+        txtEl._inlineKeyHandler = keyHandler
+        txtEl.addEventListener('keydown', keyHandler)
+        txtEl.focus()
+        try { const range = document.createRange(); range.selectNodeContents(txtEl); range.collapse(false); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range) } catch(e){}
+      }
     })
   }
   if (delBtn) {
@@ -687,14 +921,71 @@ function saveFilters(){
 }
 
 // Search functionality
-if (searchInput) {
-  searchInput.value = currentSearchTerm
-  searchInput.addEventListener('input', () => {
-    currentSearchTerm = searchInput.value
-    saveFilters()
-    // Reset and reload with the new search term
-    resetAndLoad()
-  })
+function initFilterHandlers() {
+  // Search input
+  if (searchInput) {
+    searchInput.value = currentSearchTerm
+    searchInput.addEventListener('input', () => {
+      currentSearchTerm = searchInput.value
+      saveFilters()
+      // Reset and reload with the new search term
+      resetAndLoad()
+    })
+  }
+
+  // Hide-sold toggle: default shows only available when on
+  if (hideSoldBtn) {
+    const updateHideSoldUI = () => {
+      const on = currentFilter === 'hide_sold'
+      hideSoldBtn.setAttribute('aria-pressed', on ? 'true' : 'false')
+      setToggleVisual(hideSoldBtn, on, 'green')
+    }
+    updateHideSoldUI()
+    hideSoldBtn.addEventListener('click', () => {
+      currentFilter = (currentFilter === 'hide_sold') ? 'all' : 'hide_sold'
+      updateHideSoldUI()
+      saveFilters(); resetAndLoad()
+    })
+  }
+
+  // sort by travel toggle (default ON)
+  if (sortTravelBtn) {
+    const updateSortUI = () => {
+      const on = currentSort === 'travel'
+      setToggleVisual(sortTravelBtn, on, 'green')
+      sortTravelBtn.textContent = on ? 'Sort: travel' : 'Sort by travel time'
+    }
+    updateSortUI()
+    sortTravelBtn.addEventListener('click', () => { currentSort = currentSort === 'travel' ? 'none' : 'travel'; saveFilters(); resetAndLoad(); updateSortUI() })
+  }
+
+  // cycle tri-state: any -> yes -> no -> any
+  if (filterTomYesBtn) {
+    const updateTomUI = () => {
+      if (currentTomFilter === 'yes') { setToggleVisual(filterTomYesBtn, true, 'green'); filterTomYesBtn.textContent = 'Tom:Yes' }
+      else if (currentTomFilter === 'no') { setToggleVisual(filterTomYesBtn, true, 'red'); filterTomYesBtn.textContent = 'Tom:No' }
+      else { setToggleVisual(filterTomYesBtn, false); filterTomYesBtn.textContent = 'Tom' }
+    }
+    updateTomUI()
+    filterTomYesBtn.addEventListener('click', () => { currentTomFilter = currentTomFilter === 'any' ? 'yes' : (currentTomFilter === 'yes' ? 'no' : 'any'); saveFilters(); resetAndLoad(); updateTomUI() })
+  }
+  if (filterMqYesBtn) {
+    const updateMqUI = () => {
+      if (currentMqFilter === 'yes') { setToggleVisual(filterMqYesBtn, true, 'green'); filterMqYesBtn.textContent = 'MQ:Yes' }
+      else if (currentMqFilter === 'no') { setToggleVisual(filterMqYesBtn, true, 'red'); filterMqYesBtn.textContent = 'MQ:No' }
+      else { setToggleVisual(filterMqYesBtn, false); filterMqYesBtn.textContent = 'MQ' }
+    }
+    updateMqUI()
+    filterMqYesBtn.addEventListener('click', () => { currentMqFilter = currentMqFilter === 'any' ? 'yes' : (currentMqFilter === 'yes' ? 'no' : 'any'); saveFilters(); resetAndLoad(); updateMqUI() })
+  }
+
+  if (filterExcludeSelect) {
+    filterExcludeSelect.value = currentExcludeMode || 'none'
+    filterExcludeSelect.addEventListener('change', () => {
+      currentExcludeMode = filterExcludeSelect.value
+      saveFilters(); resetAndLoad()
+    })
+  }
 }
 
 // Hide-sold toggle: default shows only available when on
@@ -773,10 +1064,46 @@ function applyStoredToUI(){
   try { if (hideSoldBtn) { const on = currentFilter === 'hide_sold'; hideSoldBtn.setAttribute('aria-pressed', on ? 'true' : 'false'); setToggleVisual(hideSoldBtn, on, 'green') } } catch(e){}
 }
 
-applyStoredToUI()
-populateTravelSelect()
-applyHideDuplexUI()
-resetAndLoad()
+document.addEventListener('DOMContentLoaded', () => {
+  // now that DOM is ready, bind element references
+  container = document.getElementById('listings')
+  loadingEl = document.getElementById('loading')
+  totalCountEl = document.getElementById('total-count')
+  availableCountEl = document.getElementById('available-count')
+  soldCountEl = document.getElementById('sold-count')
+  hideSoldBtn = document.getElementById('hide-sold-btn')
+  sortTravelBtn = document.getElementById('sort-travel')
+  filterTomYesBtn = document.getElementById('filter-tom-yes')
+  filterMqYesBtn = document.getElementById('filter-mq-yes')
+  filterExcludeSelect = document.getElementById('exclude-voted-select')
+  filterTravelSelect = document.getElementById('filter-travel-max')
+  hideDuplexBtn = document.getElementById('hide-duplex-btn')
+  searchInput = document.getElementById('searchInput')
+  filtersToggle = document.getElementById('filters-toggle')
+  filtersPanel = document.getElementById('filters-panel')
+
+  try { applyStoredToUI() } catch(e) { console.error('applyStoredToUI failed', e) }
+  try { populateTravelSelect() } catch(e) { console.error('populateTravelSelect failed', e) }
+  try { applyHideDuplexUI() } catch(e) { console.error('applyHideDuplexUI failed', e) }
+  try { initFilterHandlers() } catch(e) { console.error('initFilterHandlers failed', e) }
+  // filters panel toggle
+  if (filtersToggle && filtersPanel) {
+    filtersToggle.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const expanded = filtersToggle.getAttribute('aria-expanded') === 'true'
+      filtersToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true')
+      filtersPanel.classList.toggle('hidden')
+    })
+    // clicking outside closes the panel
+    document.addEventListener('click', (e) => {
+      if (!filtersPanel.contains(e.target) && !filtersToggle.contains(e.target)) {
+        filtersPanel.classList.add('hidden')
+        try { filtersToggle.setAttribute('aria-expanded','false') } catch(e){}
+      }
+    })
+  }
+  try { resetAndLoad() } catch(e) { console.error('resetAndLoad failed', e) }
+})
 
 // Carousel functionality
 function setupCarousels() {

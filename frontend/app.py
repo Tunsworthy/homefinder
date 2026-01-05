@@ -156,6 +156,8 @@ def api_listings():
             'google_maps_url': data.get('google_maps_url'),
             'tom': tom_vote,
             'mq': mq_vote,
+            'tom_score': v.get('tom_score'),
+            'mq_score': v.get('mq_score'),
             'tom_comment': v.get('tom_comment'),
             'mq_comment': v.get('mq_comment'),
             'route_summary': route_summary,
@@ -253,6 +255,8 @@ def api_listing(listing_id):
     v = votes.get(str(data.get('id') or path.stem), {})
     data['tom'] = v.get('tom')
     data['mq'] = v.get('mq')
+    data['tom_score'] = v.get('tom_score')
+    data['mq_score'] = v.get('mq_score')
     data['tom_comment'] = v.get('tom_comment')
     data['mq_comment'] = v.get('mq_comment')
     # route summary
@@ -287,6 +291,9 @@ def api_vote(listing_id):
     mq = payload.get('mq') if 'mq' in payload else None
     tom_comment = payload.get('tom_comment') if 'tom_comment' in payload else None
     mq_comment = payload.get('mq_comment') if 'mq_comment' in payload else None
+    # support optional numeric scores (1-5)
+    tom_score = payload.get('tom_score') if 'tom_score' in payload else None
+    mq_score = payload.get('mq_score') if 'mq_score' in payload else None
 
     votes = load_votes()
     key = str(listing_id)
@@ -294,15 +301,34 @@ def api_vote(listing_id):
     if tom is not None:
         # accept true/false/null
         v['tom'] = True if tom is True else (False if tom is False else None)
+    # validate and store scores
+    if tom_score is not None:
+        try:
+            ts = int(tom_score)
+            if 1 <= ts <= 5:
+                v['tom_score'] = ts
+            else:
+                v['tom_score'] = None
+        except Exception:
+            v['tom_score'] = None
     if mq is not None:
         v['mq'] = True if mq is True else (False if mq is False else None)
+    if mq_score is not None:
+        try:
+            ms = int(mq_score)
+            if 1 <= ms <= 5:
+                v['mq_score'] = ms
+            else:
+                v['mq_score'] = None
+        except Exception:
+            v['mq_score'] = None
     if tom_comment is not None:
         v['tom_comment'] = tom_comment
     if mq_comment is not None:
         v['mq_comment'] = mq_comment
     votes[key] = v
     save_votes(votes)
-    return jsonify({'ok': True, 'tom': v.get('tom'), 'mq': v.get('mq')})
+    return jsonify({'ok': True, 'tom': v.get('tom'), 'mq': v.get('mq'), 'tom_score': v.get('tom_score'), 'mq_score': v.get('mq_score')})
 
 
 @app.route('/api/listing/<listing_id>/comment', methods=['POST'])

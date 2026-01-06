@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: housefinder-postgres
+    environment:
+      POSTGRES_USER: housefinder
+      POSTGRES_PASSWORD: housefinder
+      POSTGRES_DB: housefinder
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U housefinder"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  
+  # API service for running migrations and scripts
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: housefinder-api
+    environment:
+      DATABASE_URL: postgresql://housefinder:housefinder@postgres:5432/housefinder
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+    volumes:
+      - ./backend:/app/backend:ro  # Read-only access to JSON data for import
+      - ./api:/app/api            # API code (for development hot-reload)
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Run seed and import on startup
+    command: sh -c "python -m api.scripts.seed_users && python -m api.scripts.import_json_to_pg"
+
+volumes:
+  postgres_data:

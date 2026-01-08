@@ -84,6 +84,12 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/map')
+def map_page():
+    maps_api_key = os.environ.get('MAPS_API_KEY', '')
+    return render_template('map.html', maps_api_key=maps_api_key)
+
+
 @app.route('/listing/<listing_id>')
 def listing_page(listing_id):
     return render_template('listing.html', listing_id=listing_id)
@@ -117,6 +123,20 @@ def api_listings():
         mq_vote = v.get('mq')
         # route summary
         route_summary = extract_route_summary_from_listing(data)
+        # lat/lng from google_transit start_location (if present)
+        lat = None
+        lng = None
+        try:
+            g = data.get('google_transit') or {}
+            resp = g.get('response') or g.get('raw_response') or {}
+            leg = (resp.get('routes') or [{}])[0].get('legs', [{}])[0]
+            if leg and isinstance(leg, dict):
+                start_loc = leg.get('start_location') or {}
+                lat = start_loc.get('lat')
+                lng = start_loc.get('lng')
+        except Exception:
+            lat = None
+            lng = None
         # pick first non-agent image (exclude urls containing 'contact')
         img = None
         for u in (data.get('image_urls') or []):
@@ -150,6 +170,7 @@ def api_listings():
             'travel_duration_text': data.get('travel_duration_text'),
             'travel_duration_seconds': data.get('travel_duration_seconds'),
             'status': data.get('status') or 'unknown',
+            'property_type': data.get('property_type'),
             'image': img,
             'images': all_images,  # Add all images for carousel
             'url': data.get('url'),
@@ -161,6 +182,8 @@ def api_listings():
             'tom_comment': v.get('tom_comment'),
             'mq_comment': v.get('mq_comment'),
             'route_summary': route_summary,
+            'lat': lat,
+            'lng': lng,
             'comments': comments_sorted[:3],
         })
 

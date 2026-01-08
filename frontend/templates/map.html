@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Housefinder — Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  </head>
+  <body class="bg-gray-100 text-gray-900">
+    <div class="max-w-6xl mx-auto p-4">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h1 class="text-2xl font-semibold">Map</h1>
+          <p class="text-sm text-gray-600">Pins for all properties; click to view listing card.</p>
+        </div>
+        <div class="flex gap-2">
+          <a href="/" class="px-3 py-2 bg-white rounded shadow text-sm">Listings</a>
+          <a href="/map" class="px-3 py-2 bg-blue-600 text-white rounded shadow text-sm">Map</a>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div class="md:col-span-1 bg-white rounded shadow p-3 space-y-3" id="filters-panel">
+          <div class="flex items-center justify-between">
+            <h2 class="font-medium">Filters</h2>
+            <button id="reset-filters" class="text-sm text-blue-600">Reset</button>
+          </div>
+
+          <button id="hide-sold-btn" class="w-full px-3 py-2 rounded bg-gray-100" aria-pressed="true">Hide sold</button>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button id="filter-tom-yes" class="px-3 py-2 rounded bg-yellow-100">Tom</button>
+            <button id="filter-mq-yes" class="px-3 py-2 rounded bg-purple-100">MQ</button>
+          </div>
+
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="exclude-voted-select">Exclude voted</label>
+            <select id="exclude-voted-select" class="w-full p-2 border rounded bg-white text-sm">
+              <option value="none">Show all</option>
+              <option value="tom">Exclude voted (Tom)</option>
+              <option value="mq">Exclude voted (MQ)</option>
+              <option value="either">Exclude voted (Either)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="filter-travel-max">Max travel</label>
+            <select id="filter-travel-max" class="w-full p-2 border rounded bg-white text-sm">
+              <option value="any">Any</option>
+            </select>
+          </div>
+
+          <div>
+            <button id="hide-duplex-btn" class="w-full px-3 py-2 rounded bg-gray-100" aria-pressed="true">Hide duplex / Semi-Detached</button>
+          </div>
+
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="searchInput">Search address</label>
+            <input id="searchInput" type="text" class="w-full p-2 border rounded" placeholder="Search listings..." />
+          </div>
+
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Sort</label>
+            <div class="flex gap-2">
+              <button id="sort-travel" class="flex-1 px-3 py-2 rounded bg-blue-100">Travel</button>
+              <button id="sort-ranking" class="flex-1 px-3 py-2 rounded bg-gray-100">Ranking</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="md:col-span-3 bg-white rounded shadow overflow-hidden" style="height: 75vh;">
+          <div id="map" class="w-full h-full"></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded shadow p-3">
+        <div class="flex items-center justify-between mb-2">
+          <div class="font-medium">Listings in view</div>
+          <div class="text-sm text-gray-600">Total: <span id="total-count">0</span> | Available: <span id="available-count">0</span> | Sold: <span id="sold-count">0</span></div>
+        </div>
+        <div id="listings" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      </div>
+    </div>
+
+    <script id="gmaps-loader" data-api-key="{{ maps_api_key }}"></script>
+    <script src="/static/map.js"></script>
+  </body>
+</html>

@@ -91,6 +91,23 @@
       </div>
     </div>
 
+    <!-- Image Popup Modal -->
+    <div id="popup" class="hidden fixed top-0 left-0 w-full h-screen bg-black bg-opacity-50 flex justify-center items-center">
+      <div id="popup-content" class="bg-white p-4 rounded shadow max-w-4xl max-h-[90vh] relative overflow-hidden">
+        <button id="close-popup" class="absolute top-2 right-2 text-gray-600 hover:text-gray-800 z-20">X</button>
+        <button id="popup-prev" class="absolute left-3 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded z-20">←</button>
+        <button id="popup-next" class="absolute right-3 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded z-20">→</button>
+        <div class="flex justify-center items-center w-full h-full">
+          <img id="popup-image" src="" alt="" class="max-h-[85vh] max-w-[95%] object-contain">
+        </div>
+        <div id="popup-caption" class="absolute bottom-3 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black bg-opacity-50 px-2 py-1 rounded z-20"></div>
+        <div class="absolute top-3 left-3 flex gap-2 z-20">
+          <button id="popup-zoom-in" class="bg-white bg-opacity-80 p-1 rounded">+</button>
+          <button id="popup-zoom-out" class="bg-white bg-opacity-80 p-1 rounded">−</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       // Hamburger menu toggle
       document.getElementById('nav-menu-toggle').addEventListener('click', () => {

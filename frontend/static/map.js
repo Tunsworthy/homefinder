@@ -108,6 +108,70 @@ function showTooltip(x, y, html) {
 function moveTooltip(x, y) { if (tooltipEl) { tooltipEl.style.left = (x + 12) + 'px'; tooltipEl.style.top = (y + 12) + 'px' } }
 function hideTooltip() { if (tooltipEl) tooltipEl.style.display = 'none' }
 
+// Image Popup handling (same as list page)
+let popupImages = []
+let popupIndex = 0
+let popupScale = 1
+let popupTranslateX = 0
+let popupTranslateY = 0
+const popup = document.getElementById('popup')
+const popupImage = document.getElementById('popup-image')
+const popupCaption = document.getElementById('popup-caption')
+const popupPrev = document.getElementById('popup-prev')
+const popupNext = document.getElementById('popup-next')
+const closePopupBtn = document.getElementById('close-popup')
+const popupZoomIn = document.getElementById('popup-zoom-in')
+const popupZoomOut = document.getElementById('popup-zoom-out')
+
+function openImagePopup(url, images, index) {
+  popupImages = Array.isArray(images) ? images.slice() : (url ? [url] : [])
+  popupIndex = (typeof index === 'number') ? index : (popupImages.indexOf(url) >= 0 ? popupImages.indexOf(url) : 0)
+  if (!popup) return
+  if (popupImage) {
+    popupImage.src = popupImages[popupIndex] || url || ''
+    popupTranslateX = 0; popupTranslateY = 0
+    popupImage.style.transform = `translate(0px, 0px) scale(1)`
+    popupScale = 1
+  }
+  popup.classList.remove('hidden')
+  updatePopupControls()
+  try { popup.focus() } catch(e) {}
+}
+
+function closePopup() {
+  if (!popup) return
+  popup.classList.add('hidden')
+  if (popupImage) { popupImage.src = ''; popupImage.style.transform = '' }
+  popupImages = []; popupIndex = 0; popupScale = 1; popupTranslateX = 0; popupTranslateY = 0
+}
+
+function updatePopupControls() {
+  if (popupCaption) popupCaption.textContent = (popupImages.length > 0) ? `${popupIndex + 1} / ${popupImages.length}` : ''
+  if (popupPrev) popupPrev.style.display = (popupImages.length > 1) ? 'block' : 'none'
+  if (popupNext) popupNext.style.display = (popupImages.length > 1) ? 'block' : 'none'
+}
+
+function showPrev() {
+  if (!popupImages || popupImages.length === 0) return
+  popupIndex = (popupIndex - 1 + popupImages.length) % popupImages.length
+  if (popupImage) { popupImage.src = popupImages[popupIndex]; popupTranslateX = 0; popupTranslateY = 0; popupImage.style.transform = `translate(0px, 0px) scale(1)`; popupScale = 1 }
+  updatePopupControls()
+}
+
+function showNext() {
+  if (!popupImages || popupImages.length === 0) return
+  popupIndex = (popupIndex + 1) % popupImages.length
+  if (popupImage) { popupImage.src = popupImages[popupIndex]; popupTranslateX = 0; popupTranslateY = 0; popupImage.style.transform = `translate(0px, 0px) scale(1)`; popupScale = 1 }
+  updatePopupControls()
+}
+
+if (closePopupBtn) closePopupBtn.addEventListener('click', (e) => { e.stopPropagation(); closePopup() })
+if (popup) popup.addEventListener('click', (e) => { if (e.target === popup) closePopup() })
+if (popupPrev) popupPrev.addEventListener('click', (e) => { e.stopPropagation(); showPrev() })
+if (popupNext) popupNext.addEventListener('click', (e) => { e.stopPropagation(); showNext() })
+if (popupZoomIn) popupZoomIn.addEventListener('click', (e) => { e.stopPropagation(); popupScale = Math.min(3, popupScale + 0.25); if (popupImage) popupImage.style.transform = `scale(${popupScale})` })
+if (popupZoomOut) popupZoomOut.addEventListener('click', (e) => { e.stopPropagation(); popupScale = Math.max(1, popupScale - 0.25); if (popupImage) popupImage.style.transform = `scale(${popupScale})` })
+
 // Build a Google Maps directions URL for a commute
 function buildGoogleMapsLink(origin, destination, mode) {
   try {
@@ -317,6 +381,17 @@ function renderList(listings) {
     container.appendChild(el)
     const cm = el.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)
     window.HF.initVoteButtons(el, item)
+    // Attach image click handlers for popup zoom
+    const imgs = el.querySelectorAll('img')
+    imgs.forEach((img, idx) => {
+      img.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation()
+        const images = (item.images && item.images.length) ? item.images : (item.image ? [item.image] : [])
+        const clickedImageSrc = img.src
+        const clickedIndex = images.indexOf(clickedImageSrc) >= 0 ? images.indexOf(clickedImageSrc) : 0
+        openImagePopup(clickedImageSrc, images, clickedIndex)
+      })
+    })
   }
   window.HF.setupCarousels()
 }
@@ -328,6 +403,17 @@ function buildInfoNode(item) {
   wrapper.appendChild(card)
   const cm = wrapper.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)
   window.HF.initVoteButtons(wrapper, item)
+  // Attach image click handlers for popup zoom
+  const imgs = wrapper.querySelectorAll('img')
+  imgs.forEach((img, idx) => {
+    img.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation()
+      const images = (item.images && item.images.length) ? item.images : (item.image ? [item.image] : [])
+      const clickedImageSrc = img.src
+      const clickedIndex = images.indexOf(clickedImageSrc) >= 0 ? images.indexOf(clickedImageSrc) : 0
+      openImagePopup(clickedImageSrc, images, clickedIndex)
+    })
+  })
   return wrapper
 }
 

@@ -311,7 +311,7 @@ function renderList(listings) {
   }
   for (const item of listings) {
     const el = document.createElement('div')
-    el.className = 'border rounded p-3'
+    el.className = 'border rounded p-3 relative'
     const card = window.HF.renderListingContent(null, item, {commentsMode:'top3', compact:true, showLinks:true})
     el.appendChild(card)
     container.appendChild(el)
@@ -323,7 +323,7 @@ function renderList(listings) {
 
 function buildInfoNode(item) {
   const wrapper = document.createElement('div')
-  wrapper.className = 'max-w-xs'
+  wrapper.className = 'max-w-xs relative'
   const card = window.HF.renderListingContent(null, item, {commentsMode:'latest', compact:true, showLinks:true})
   wrapper.appendChild(card)
   const cm = wrapper.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)

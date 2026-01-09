@@ -146,11 +146,12 @@ function renderItem(item) {
   const card = window.HF.renderListingContent(null, item, {commentsMode:'top3', compact:false, showLinks:true, includeCommentEditor:true})
   wrapper.appendChild(card)
   container.appendChild(wrapper)
+  setupCarousels()
   const commutesContainer = wrapper.querySelector('.commutes-container')
   if (commutesContainer) window.HF.loadAndRenderCommutes(item.id, commutesContainer, item)
   window.HF.initVoteButtons(wrapper, item)
   if (wrapper.querySelector('.comments-block')) window.HF.initCommentEditor(wrapper, item.id)
-  const imgs = wrapper.querySelectorAll('img')
+  const imgs = wrapper.querySelectorAll('img:not(.carousel-image)')
   imgs.forEach((img, idx) => {
     img.addEventListener('click', (e) => {
       e.preventDefault(); e.stopPropagation();

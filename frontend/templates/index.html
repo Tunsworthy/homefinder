@@ -8,15 +8,25 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   </head>
   <body class="bg-gray-100 text-gray-900">
-    <div class="max-w-6xl mx-auto p-4">
-      <div class="flex items-center justify-between mb-4">
-        <h1 class="text-2xl font-semibold">Listings</h1>
-        <div class="flex gap-2 text-sm">
-          <a href="/" class="px-3 py-1 bg-blue-600 text-white rounded">List</a>
-          <a href="/map" class="px-3 py-1 bg-white rounded shadow">Map</a>
+    <!-- Top Navigation Bar -->
+    <nav class="bg-white shadow sticky top-0 z-40">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
+        <!-- Hamburger Menu -->
+        <div class="relative">
+          <button id="nav-menu-toggle" class="p-2 hover:bg-gray-100 rounded" aria-label="Menu">
+            <i class="fa-solid fa-bars text-lg"></i>
+          </button>
+          <div id="nav-menu" class="hidden absolute left-0 mt-2 w-48 bg-white border rounded shadow z-50">
+            <a href="/" class="block px-4 py-2 hover:bg-gray-100 text-sm">List View</a>
+            <a href="/map" class="block px-4 py-2 hover:bg-gray-100 text-sm">Map View</a>
+          </div>
         </div>
+        <!-- Page Title -->
+        <h1 class="text-xl font-semibold">Listings</h1>
       </div>
+    </nav>
 
+    <div class="max-w-6xl mx-auto p-4">
       <div class="flex items-center justify-between bg-white p-3 rounded shadow mb-4">
         <div>
           <span class="font-medium">Total:</span> <span id="total-count">0</span>
@@ -91,6 +101,19 @@
         </div>
       </div>
     </div>
+    <script>
+      // Hamburger menu toggle
+      document.getElementById('nav-menu-toggle').addEventListener('click', () => {
+        const menu = document.getElementById('nav-menu');
+        menu.classList.toggle('hidden');
+      });
+      // Close menu when a link is clicked
+      document.querySelectorAll('#nav-menu a').forEach(link => {
+        link.addEventListener('click', () => {
+          document.getElementById('nav-menu').classList.add('hidden');
+        });
+      });
+    </script>
     <script src="/static/components.js"></script>
     <script src="/static/app.js"></script>
   </body>

@@ -47,86 +47,32 @@ async function loadDetail(){
       ? `<div class="relative group"><div class="carousel" data-id="${data.id}">${images.map((u,i)=>`<img src=\"${u}\" class=\"carousel-img w-full h-72 object-cover rounded ${i===0?'':'hidden'}\" data-index=\"${i}\">`).join('')}</div><button class="carousel-prev absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">←</button><button class="carousel-next absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">→</button><div class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">${images.length} photos</div></div>`
       : (hero? `<img src="${hero}" class="w-full h-72 object-cover rounded">` : '')
 
-    const route = data.route_summary ? `<div class="text-xs text-gray-600">${escapeHtml(data.route_summary)}</div>` : ''
     const stats = `<div class="flex items-center gap-4 text-sm text-gray-700">${data.bedrooms?`<span>🛏 ${data.bedrooms}</span>`:''}${data.bathrooms?`<span>🛁 ${data.bathrooms}</span>`:''}${data.parking?`<span>🚗 ${data.parking}</span>`:''}</div>`
     const price = data.price? `<div class="text-sm text-gray-800">${escapeHtml(data.price)}</div>`:''
     const domain = data.url? `<a href="${data.url}" target="_blank" class="px-3 py-1 bg-gray-100 rounded text-sm">Domain</a>`:''
-    const maps = data.google_maps_url? `<a href="${data.google_maps_url}" target="_blank" class="px-3 py-1 bg-gray-100 rounded text-sm">Directions</a>`:''
 
-    content.innerHTML = `
-      <div class="bg-white rounded shadow p-4">
-        ${carousel}
-        <div class="mt-3">
-          <h2 class="text-lg font-semibold">${escapeHtml(data.address||data.headline||'')}</h2>
-          ${price}
-          ${stats}
-          <div class="mt-2 flex items-center gap-2">${domain}${maps}</div>
-          <div class="mt-2">${route}</div>
-          <div class="commutes-container mt-2"></div>
-        </div>
-        <div class="mt-4">
-          <div class="flex items-center gap-3 mb-2">
-            <div class="w-16 text-sm">Tom</div>
-            <button class="vote-btn tom-yes px-3 py-1 rounded text-sm bg-gray-200" data-id="${data.id}" data-person="tom" data-val="true">Yes</button>
-            <button class="vote-btn tom-no px-3 py-1 rounded text-sm bg-gray-200" data-id="${data.id}" data-person="tom" data-val="false">No</button>
-            <div class="tom-score ml-2"></div>
-          </div>
-          <div class="flex items-center gap-3">
-            <div class="w-16 text-sm">MQ</div>
-            <button class="vote-btn mq-yes px-3 py-1 rounded text-sm bg-gray-200" data-id="${data.id}" data-person="mq" data-val="true">Yes</button>
-            <button class="vote-btn mq-no px-3 py-1 rounded text-sm bg-gray-200" data-id="${data.id}" data-person="mq" data-val="false">No</button>
-            <div class="mq-score ml-2"></div>
-          </div>
-        </div>
-        <div class="mt-6">
-          <div class="font-medium">Comments</div>
-          <div class="existing-comments mt-2"></div>
-          <div class="new-comment mt-2">
-            <button class="toggle-new-comment inline-flex items-center px-2 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded" aria-expanded="false">💬 Add comment</button>
-            <div class="new-comment-area hidden mt-2">
-              <textarea class="new-comment-input w-full p-2 border rounded" placeholder="Leave a comment..."></textarea>
-              <div class="mt-2 flex justify-end gap-2">
-                <button class="new-comment-save px-3 py-1 bg-blue-200 rounded" data-person="tom">Save Tom</button>
-                <button class="new-comment-save px-3 py-1 bg-indigo-200 rounded" data-person="mq">Save MQ</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>`
+    content.innerHTML = `<div class="bg-white rounded shadow p-4">${carousel}<div class="mt-3"><h2 class="text-lg font-semibold">${escapeHtml(data.address||data.headline||'')}</h2>${price}${stats}<div class="mt-2 flex items-center gap-2">${domain}</div></div><div id="detail-card" class="mt-3"></div></div>`
+    const cardHost = document.getElementById('detail-card')
+    const card = window.HF.renderListingContent(null, data, {commentsMode:'all', compact:false, showLinks:false})
+    cardHost.appendChild(card)
 
     // Carousel controls
     const prev=document.querySelector('.carousel-prev'); const next=document.querySelector('.carousel-next'); const imgs=[...document.querySelectorAll('.carousel-img')] 
     if(prev&&next&&imgs.length){ let idx=0; function show(i){ imgs.forEach((im,k)=>{ im.classList.toggle('hidden', k!==i) }) } prev.addEventListener('click',()=>{ idx=(idx-1+imgs.length)%imgs.length; show(idx) }); next.addEventListener('click',()=>{ idx=(idx+1)%imgs.length; show(idx) }) }
 
-    // Commute badges
-    const comm = document.querySelector('.commutes-container'); if (comm) loadAndRenderCommutes(listingId, comm, data)
-
-    // Voting state and score selectors
-    const tomYes=document.querySelector('.tom-yes'), tomNo=document.querySelector('.tom-no'), mqYes=document.querySelector('.mq-yes'), mqNo=document.querySelector('.mq-no')
-    setToggleVisual(tomYes, data.tom===true, 'green'); setToggleVisual(tomNo, data.tom===false, 'red'); setToggleVisual(mqYes, data.mq===true, 'green'); setToggleVisual(mqNo, data.mq===false, 'red')
-    const tomScore=document.querySelector('.tom-score'); const mqScore=document.querySelector('.mq-score')
-    if (tomScore) { tomScore.innerHTML = (data.tom===true)? buildScoreHtml('tom', data.tom_score):''; tomScore.style.display=(data.tom===true)?'inline-block':'none' }
-    if (mqScore) { mqScore.innerHTML = (data.mq===true)? buildScoreHtml('mq', data.mq_score):''; mqScore.style.display=(data.mq===true)?'inline-block':'none' }
-    function attachScoreHandlers(parentEl, person, id){ if(!parentEl) return; parentEl.querySelectorAll('.score-circle').forEach(sc=>{ sc.addEventListener('click', async (ev)=>{ ev.preventDefault(); ev.stopPropagation(); const score=Number(sc.dataset.score); const payload={}; if(person==='tom'){ payload.tom=true; payload.tom_score=score } else { payload.mq=true; payload.mq_score=score } try { const resp=await fetch(`/api/listing/${id}/vote`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)}) ; const j=await resp.json().catch(()=>null); if(j&&j.ok){ parentEl.querySelectorAll('.score-circle').forEach(c=>c.classList.remove('bg-yellow-500','text-white')); const sel=parentEl.querySelector(`.score-circle[data-score="${score}"]`); if(sel) sel.classList.add('bg-yellow-500','text-white') } } catch(e){ console.error('score save failed', e) } }) }) }
-    attachScoreHandlers(tomScore, 'tom', data.id); attachScoreHandlers(mqScore, 'mq', data.id)
-
-    document.querySelectorAll('.vote-btn').forEach(btn=>{ btn.addEventListener('click', async (ev)=>{ ev.preventDefault(); const id=btn.dataset.id; const person=btn.dataset.person; const val=btn.dataset.val==='true'; try{ const resp=await fetch(`/api/listing/${id}/vote`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({[person]: val})}); const j=await resp.json().catch(()=>({})); const tVal=(typeof j.tom!=='undefined')?j.tom:null; const mVal=(typeof j.mq!=='undefined')?j.mq:null; setToggleVisual(tomYes, tVal===true, 'green'); setToggleVisual(tomNo, tVal===false, 'red'); setToggleVisual(mqYes, mVal===true, 'green'); setToggleVisual(mqNo, mVal===false, 'red'); if(typeof tVal!=='undefined' && tomScore){ if(tVal===true && (!tomScore.innerHTML||tomScore.innerHTML.trim()==='')) tomScore.innerHTML = buildScoreHtml('tom', j.tom_score); tomScore.style.display=(tVal===true)?'inline-block':'none'; attachScoreHandlers(tomScore, 'tom', id) } if(typeof mVal!=='undefined' && mqScore){ if(mVal===true && (!mqScore.innerHTML||mqScore.innerHTML.trim()==='')) mqScore.innerHTML = buildScoreHtml('mq', j.mq_score); mqScore.style.display=(mVal===true)?'inline-block':'none'; attachScoreHandlers(mqScore, 'mq', id) } } catch(e){ console.error('vote failed', e) } }) })
-
-    // Comments rendering (full list)
-    const commentsContainer = document.querySelector('.existing-comments')
-    function renderComments(list){ commentsContainer.innerHTML=''; if(!list||!list.length){ commentsContainer.innerHTML='<div class="text-sm text-gray-500">No comments</div>'; return } for(const c of list){ const who=c.person==='tom'?'Tom':'MQ'; const wrapper=document.createElement('div'); wrapper.className='comment-item text-sm border rounded p-2 mb-1 flex items-start justify-between'; wrapper.setAttribute('data-cid', c.id); wrapper.innerHTML=`<div class=\"comment-body flex-1 min-w-0\"><strong>${who}:</strong><div class=\"comment-main min-w-0\"><span class=\"comment-text ml-2 block break-words\">${escapeHtml(c.text).replace(/\n/g,'<br>')}</span></div><div class=\"comment-ts text-xs text-gray-400 mt-1\">${new Date(c.ts*1000).toLocaleString()}</div></div><div class=\"ml-3 flex items-center flex-shrink-0\"><button class=\"edit-comment text-xs ml-2 px-2 py-1\" title=\"Edit\">✏️</button><button class=\"del-comment text-xs ml-1 px-2 py-1 text-red-500\" title=\"Delete\">🗑️</button></div>`; commentsContainer.appendChild(wrapper) } attachCommentHandlers() }
-    renderComments(data.comments||[])
-
-    function attachCommentHandlers(){ document.querySelectorAll('.edit-comment').forEach(btn=>{ btn.addEventListener('click', async (ev)=>{ ev.preventDefault(); const wrapper=btn.closest('.comment-item'); const txtEl=wrapper.querySelector('.comment-text'); const cid=wrapper.getAttribute('data-cid'); if(btn.dataset.editing==='true'){ const newText = txtEl.innerText || ''; try{ const resp=await fetch(`/api/listing/${listingId}/comment/${cid}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text:newText})}); const j=await resp.json().catch(()=>null); if(!(j&&j.ok)) loadDetail() } catch(e){ console.error('edit failed', e) } txtEl.contentEditable='false'; txtEl.classList.remove('inline-editing'); btn.dataset.editing='false'; btn.textContent='✏️' } else { btn.dataset.editing='true'; btn.textContent='✓'; txtEl.dataset.origText=txtEl.innerText||''; txtEl.contentEditable='true'; txtEl.classList.add('inline-editing'); txtEl.focus() } }) }); document.querySelectorAll('.del-comment').forEach(btn=>{ btn.addEventListener('click', async (ev)=>{ ev.preventDefault(); if(!confirm('Delete comment?')) return; const wrapper=btn.closest('.comment-item'); const cid=wrapper.getAttribute('data-cid'); try{ const resp=await fetch(`/api/listing/${listingId}/comment/${cid}`, {method:'DELETE'}); const j=await resp.json().catch(()=>null); if(j&&j.ok) wrapper.remove(); else loadDetail() }catch(e){ console.error('delete failed', e) } }) }) }
-
-    // Add new comment
-    const toggleNew = document.querySelector('.toggle-new-comment'); const newArea=document.querySelector('.new-comment-area'); const input=document.querySelector('.new-comment-input')
-    if(toggleNew&&newArea){ toggleNew.addEventListener('click', ()=>{ const vis=newArea.classList.contains('hidden'); newArea.classList.toggle('hidden', !vis); toggleNew.setAttribute('aria-expanded', vis?'true':'false'); if(vis) input.focus() }) }
-    document.querySelectorAll('.new-comment-save').forEach(btn=>{ btn.addEventListener('click', async ()=>{ const person=btn.dataset.person; const text=input.value||''; if(!text.trim()) return; try{ const resp=await fetch(`/api/listing/${listingId}/comment`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({person, text})}); const j=await resp.json().catch(()=>null); if(j&&j.ok){ input.value=''; newArea.classList.add('hidden'); // prepend
-            const list = data.comments ? [j.comment, ...data.comments] : [j.comment]
-            data.comments = list
-            renderComments(list)
-          } else { loadDetail() } } catch(e){ console.error('create failed', e) } }) })
+    // Commutes + votes + comments
+    const comm = card.querySelector('.commutes-container'); if (comm) window.HF.loadAndRenderCommutes(listingId, comm, data)
+    window.HF.initVoteButtons(card, data)
+    // Inject comment editor UI
+    const commentsEl = card.querySelector('.existing-comments')
+    if (commentsEl) {
+      // add new-comment skeleton
+      const newWrap = document.createElement('div')
+      newWrap.className = 'new-comment mt-2'
+      newWrap.innerHTML = '<button class="toggle-new-comment inline-flex items-center px-2 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded" aria-expanded="false">💬 Add comment</button><div class="new-comment-area hidden mt-2"><textarea class="new-comment-input w-full p-2 border rounded" placeholder="Leave a comment..."></textarea><div class="mt-2 flex justify-end gap-2"><button class="new-comment-save px-3 py-1 bg-blue-200 rounded" data-person="tom">Save Tom</button><button class="new-comment-save px-3 py-1 bg-indigo-200 rounded" data-person="mq">Save MQ</button></div></div>'
+      commentsEl.parentNode && commentsEl.parentNode.appendChild(newWrap)
+      window.HF.initCommentEditor(card, listingId)
+    }
 
   }catch(e){ content.innerHTML='<div class="text-red-600">Failed to load listing</div>'; console.error(e) }
 }

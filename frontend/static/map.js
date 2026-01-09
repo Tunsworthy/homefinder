@@ -312,173 +312,21 @@ function renderList(listings) {
   for (const item of listings) {
     const el = document.createElement('div')
     el.className = 'border rounded p-3'
-    const img = item.image ? `<img src="${item.image}" class="w-full h-40 object-cover rounded mb-2" alt="">` : ''
-    const travel = item.travel_duration_text ? `<div class="text-xs text-gray-600">${item.travel_duration_text}</div>` : ''
-    const status = item.status ? `<span class="text-xs px-2 py-1 rounded bg-gray-100">${item.status}</span>` : ''
-    el.innerHTML = `${img}<div class="font-medium text-sm">${item.address || ''}</div><div class="text-sm text-gray-700 mb-1">${item.price || ''}</div>${travel}<div class="mt-1 flex items-center gap-2 text-xs text-gray-600">${status}${item.route_summary ? `<span>${item.route_summary}</span>` : ''}</div><div class="commutes-container mt-2"></div><div class="mt-2"><div class="flex items-center gap-2 mb-1"><div class="w-14 text-xs">Tom</div><button class="vote-btn tom-yes px-2 py-1 rounded text-xs bg-gray-200" data-id="${item.id}" data-person="tom" data-val="true">Yes</button><button class="vote-btn tom-no px-2 py-1 rounded text-xs bg-gray-200" data-id="${item.id}" data-person="tom" data-val="false">No</button><div class="tom-score ml-2"></div></div><div class="flex items-center gap-2"><div class="w-14 text-xs">MQ</div><button class="vote-btn mq-yes px-2 py-1 rounded text-xs bg-gray-200" data-id="${item.id}" data-person="mq" data-val="true">Yes</button><button class="vote-btn mq-no px-2 py-1 rounded text-xs bg-gray-200" data-id="${item.id}" data-person="mq" data-val="false">No</button><div class="mq-score ml-2"></div></div></div><div class="mt-2 flex gap-2"><a href="/listing/${item.id}" class="px-2 py-1 bg-blue-600 text-white rounded text-xs">Open</a>${item.google_maps_url ? `<a href="${item.google_maps_url}" target="_blank" class="px-2 py-1 bg-gray-200 rounded text-xs">Directions</a>` : ''}</div>`
+    const card = window.HF.renderListingContent(null, item, {commentsMode:'top3', compact:true, showLinks:true})
+    el.appendChild(card)
     container.appendChild(el)
-
-    // Commute badges
-    const cm = el.querySelector('.commutes-container')
-    if (cm) loadAndRenderCommutes(item.id, cm, item)
-
-    // Initialize votes UI state
-    const tomYes = el.querySelector('.tom-yes'); const tomNo = el.querySelector('.tom-no')
-    const mqYes = el.querySelector('.mq-yes'); const mqNo = el.querySelector('.mq-no')
-    setToggleVisual(tomYes, item.tom === true, 'green')
-    setToggleVisual(tomNo, item.tom === false, 'red')
-    setToggleVisual(mqYes, item.mq === true, 'green')
-    setToggleVisual(mqNo, item.mq === false, 'red')
-
-    const tomScore = el.querySelector('.tom-score')
-    const mqScore = el.querySelector('.mq-score')
-    function buildScoreHtml(person, currentScore) {
-      let html = '<div class="inline-flex items-center gap-1">'
-      for (let s = 1; s <= 5; s++) {
-        const sel = (currentScore && Number(currentScore) === s) ? 'bg-yellow-500 text-white' : 'bg-white'
-        html += `<div class="score-circle w-6 h-6 rounded-full border flex items-center justify-center text-xs cursor-pointer ${sel}" data-score="${s}" data-person="${person}">${s}</div>`
-      }
-      html += '</div>'
-      return html
-    }
-    if (tomScore) { tomScore.innerHTML = (item.tom === true) ? buildScoreHtml('tom', item.tom_score) : ''; tomScore.style.display = (item.tom === true) ? 'inline-block' : 'none' }
-    if (mqScore) { mqScore.innerHTML = (item.mq === true) ? buildScoreHtml('mq', item.mq_score) : ''; mqScore.style.display = (item.mq === true) ? 'inline-block' : 'none' }
-
-    function attachScoreHandlers(parentEl, person, id) {
-      if (!parentEl) return
-      parentEl.querySelectorAll('.score-circle').forEach(sc => {
-        sc.addEventListener('click', async (ev) => {
-          ev.preventDefault(); ev.stopPropagation();
-          const score = Number(sc.getAttribute('data-score'))
-          const payload = {}
-          if (person === 'tom') { payload.tom = true; payload.tom_score = score } else { payload.mq = true; payload.mq_score = score }
-          try {
-            const resp = await fetch(`/api/listing/${id}/vote`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)})
-            const j = await resp.json().catch(()=>null)
-            if (j && j.ok) {
-              parentEl.querySelectorAll('.score-circle').forEach(c => c.classList.remove('bg-yellow-500','text-white'))
-              const sel = parentEl.querySelector(`.score-circle[data-score="${score}"]`)
-              if (sel) sel.classList.add('bg-yellow-500','text-white')
-            }
-          } catch (e) { console.error('score save failed', e) }
-        })
-      })
-    }
-    attachScoreHandlers(tomScore, 'tom', item.id)
-    attachScoreHandlers(mqScore, 'mq', item.id)
-
-    // Vote handlers
-    el.querySelectorAll('.vote-btn').forEach(btn => {
-      btn.addEventListener('click', async (ev) => {
-        ev.preventDefault(); ev.stopPropagation();
-        const id = btn.getAttribute('data-id')
-        const person = btn.getAttribute('data-person')
-        const val = btn.getAttribute('data-val') === 'true'
-        try {
-          const resp = await fetch(`/api/listing/${id}/vote`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({[person]: val})})
-          const j = await resp.json().catch(()=>({}))
-          const tVal = (typeof j.tom !== 'undefined') ? j.tom : null
-          const mVal = (typeof j.mq !== 'undefined') ? j.mq : null
-          setToggleVisual(tomYes, tVal === true, 'green'); setToggleVisual(tomNo, tVal === false, 'red')
-          setToggleVisual(mqYes, mVal === true, 'green'); setToggleVisual(mqNo, mVal === false, 'red')
-          if (typeof tVal !== 'undefined' && tomScore) {
-            if (tVal === true && (!tomScore.innerHTML || tomScore.innerHTML.trim() === '')) tomScore.innerHTML = buildScoreHtml('tom', j.tom_score)
-            tomScore.style.display = (tVal === true) ? 'inline-block' : 'none'
-            attachScoreHandlers(tomScore, 'tom', id)
-          }
-          if (typeof mVal !== 'undefined' && mqScore) {
-            if (mVal === true && (!mqScore.innerHTML || mqScore.innerHTML.trim() === '')) mqScore.innerHTML = buildScoreHtml('mq', j.mq_score)
-            mqScore.style.display = (mVal === true) ? 'inline-block' : 'none'
-            attachScoreHandlers(mqScore, 'mq', id)
-          }
-        } catch (e) { console.error('vote failed', e) }
-      })
-    })
+    const cm = el.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)
+    window.HF.initVoteButtons(el, item)
   }
 }
 
 function buildInfoNode(item) {
   const wrapper = document.createElement('div')
   wrapper.className = 'max-w-xs'
-  const img = item.image ? `<img src="${item.image}" class="w-full h-32 object-cover rounded mb-2" alt="">` : ''
-  const travel = item.travel_duration_text ? `<div class="text-sm text-gray-700">${item.travel_duration_text}</div>` : ''
-  const route = item.route_summary ? `<div class="text-xs text-gray-600 mb-1">${item.route_summary}</div>` : ''
-  wrapper.innerHTML = `<div class="text-sm font-medium mb-1">${item.address || ''}</div>${img}<div class="text-sm text-gray-800 mb-1">${item.price || ''}</div>${travel}${route}<div class="commutes-container mb-2"></div><div class="mt-1"><div class="flex items-center gap-2 mb-1"><div class="w-12 text-xs">Tom</div><button class="vote-btn tom-yes px-2 py-1 rounded text-xs bg-gray-200" data-id="${item.id}" data-person="tom" data-val="true">Yes</button><button class="vote-btn tom-no px-2 py-1 rounded text-xs bg-gray-200" data-id="${item.id}" data-person="tom" data-val="false">No</button><div class="tom-score ml-2"></div></div><div class="flex items-center gap-2"><div class="w-12 text-xs">MQ</div><button class="vote-btn mq-yes px-2 py-1 rounded text-xs bg-gray-200" data-id="${item.id}" data-person="mq" data-val="true">Yes</button><button class="vote-btn mq-no px-2 py-1 rounded text-xs bg-gray-200" data-id="${item.id}" data-person="mq" data-val="false">No</button><div class="mq-score ml-2"></div></div></div><div class="mt-2 flex gap-2"><a href="/listing/${item.id}" class="px-2 py-1 bg-blue-600 text-white rounded text-xs">Details</a>${item.google_maps_url ? `<a href="${item.google_maps_url}" target="_blank" class="px-2 py-1 bg-gray-200 rounded text-xs">Maps</a>` : ''}</div>`
-
-  const cm = wrapper.querySelector('.commutes-container')
-  if (cm) loadAndRenderCommutes(item.id, cm, item)
-
-  const tomYes = wrapper.querySelector('.tom-yes'); const tomNo = wrapper.querySelector('.tom-no')
-  const mqYes = wrapper.querySelector('.mq-yes'); const mqNo = wrapper.querySelector('.mq-no')
-  setToggleVisual(tomYes, item.tom === true, 'green')
-  setToggleVisual(tomNo, item.tom === false, 'red')
-  setToggleVisual(mqYes, item.mq === true, 'green')
-  setToggleVisual(mqNo, item.mq === false, 'red')
-
-  const tomScore = wrapper.querySelector('.tom-score')
-  const mqScore = wrapper.querySelector('.mq-score')
-  function buildScoreHtml(person, currentScore) {
-    let html = '<div class="inline-flex items-center gap-1">'
-    for (let s = 1; s <= 5; s++) {
-      const sel = (currentScore && Number(currentScore) === s) ? 'bg-yellow-500 text-white' : 'bg-white'
-      html += `<div class="score-circle w-5 h-5 rounded-full border flex items-center justify-center text-[10px] cursor-pointer ${sel}" data-score="${s}" data-person="${person}">${s}</div>`
-    }
-    html += '</div>'
-    return html
-  }
-  if (tomScore) { tomScore.innerHTML = (item.tom === true) ? buildScoreHtml('tom', item.tom_score) : ''; tomScore.style.display = (item.tom === true) ? 'inline-block' : 'none' }
-  if (mqScore) { mqScore.innerHTML = (item.mq === true) ? buildScoreHtml('mq', item.mq_score) : ''; mqScore.style.display = (item.mq === true) ? 'inline-block' : 'none' }
-
-  function attachScoreHandlers(parentEl, person, id) {
-    if (!parentEl) return
-    parentEl.querySelectorAll('.score-circle').forEach(sc => {
-      sc.addEventListener('click', async (ev) => {
-        ev.preventDefault(); ev.stopPropagation();
-        const score = Number(sc.getAttribute('data-score'))
-        const payload = {}
-        if (person === 'tom') { payload.tom = true; payload.tom_score = score } else { payload.mq = true; payload.mq_score = score }
-        try {
-          const resp = await fetch(`/api/listing/${id}/vote`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)})
-          const j = await resp.json().catch(()=>null)
-          if (j && j.ok) {
-            parentEl.querySelectorAll('.score-circle').forEach(c => c.classList.remove('bg-yellow-500','text-white'))
-            const sel = parentEl.querySelector(`.score-circle[data-score="${score}"]`)
-            if (sel) sel.classList.add('bg-yellow-500','text-white')
-          }
-        } catch (e) { console.error('score save failed', e) }
-      })
-    })
-  }
-  attachScoreHandlers(tomScore, 'tom', item.id)
-  attachScoreHandlers(mqScore, 'mq', item.id)
-
-  wrapper.querySelectorAll('.vote-btn').forEach(btn => {
-    btn.addEventListener('click', async (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      const id = btn.getAttribute('data-id')
-      const person = btn.getAttribute('data-person')
-      const val = btn.getAttribute('data-val') === 'true'
-      try {
-        const resp = await fetch(`/api/listing/${id}/vote`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({[person]: val})})
-        const j = await resp.json().catch(()=>({}))
-        const tVal = (typeof j.tom !== 'undefined') ? j.tom : null
-        const mVal = (typeof j.mq !== 'undefined') ? j.mq : null
-        setToggleVisual(tomYes, tVal === true, 'green'); setToggleVisual(tomNo, tVal === false, 'red')
-        setToggleVisual(mqYes, mVal === true, 'green'); setToggleVisual(mqNo, mVal === false, 'red')
-        if (typeof tVal !== 'undefined' && tomScore) {
-          if (tVal === true && (!tomScore.innerHTML || tomScore.innerHTML.trim() === '')) tomScore.innerHTML = buildScoreHtml('tom', j.tom_score)
-          tomScore.style.display = (tVal === true) ? 'inline-block' : 'none'
-          attachScoreHandlers(tomScore, 'tom', id)
-        }
-        if (typeof mVal !== 'undefined' && mqScore) {
-          if (mVal === true && (!mqScore.innerHTML || mqScore.innerHTML.trim() === '')) mqScore.innerHTML = buildScoreHtml('mq', j.mq_score)
-          mqScore.style.display = (mVal === true) ? 'inline-block' : 'none'
-          attachScoreHandlers(mqScore, 'mq', id)
-        }
-      } catch (e) { console.error('vote failed', e) }
-    })
-  })
-
+  const card = window.HF.renderListingContent(null, item, {commentsMode:'latest', compact:true, showLinks:true})
+  wrapper.appendChild(card)
+  const cm = wrapper.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)
+  window.HF.initVoteButtons(wrapper, item)
   return wrapper
 }
 

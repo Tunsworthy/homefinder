@@ -49,9 +49,9 @@ async function loadDetail(){
 
     const domain = data.url? `<a href="${data.url}" target="_blank" class="px-2 py-1 rounded text-xs bg-gray-700 text-white hover:bg-gray-800">🏠 Domain</a>`:''
 
-    content.innerHTML = `<div class="bg-white rounded shadow p-4 relative">${carousel}<div id="detail-card" class="mt-3"></div><div class="mt-2 flex gap-2">${domain}</div></div>`
+    content.innerHTML = `<div class="bg-white rounded shadow p-4 relative">${carousel}<div id="detail-card" class="mt-3"></div></div>`
     const cardHost = document.getElementById('detail-card')
-    const card = window.HF.renderListingContent(null, data, {commentsMode:'all', compact:false, showLinks:false, showDomain:false})
+    const card = window.HF.renderListingContent(null, data, {commentsMode:'all', compact:false, showLinks:false, showDomain:true, skipImages:true, includeCommentEditor:true})
     cardHost.appendChild(card)
 
     // Carousel controls
@@ -61,16 +61,7 @@ async function loadDetail(){
     // Commutes + votes + comments
     const comm = card.querySelector('.commutes-container'); if (comm) window.HF.loadAndRenderCommutes(listingId, comm, data)
     window.HF.initVoteButtons(card, data)
-    // Inject comment editor UI
-    const commentsEl = card.querySelector('.existing-comments')
-    if (commentsEl) {
-      // add new-comment skeleton
-      const newWrap = document.createElement('div')
-      newWrap.className = 'new-comment mt-2'
-      newWrap.innerHTML = '<button class="toggle-new-comment inline-flex items-center px-2 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded" aria-expanded="false">💬 Add comment</button><div class="new-comment-area hidden mt-2"><textarea class="new-comment-input w-full p-2 border rounded" placeholder="Leave a comment..."></textarea><div class="mt-2 flex justify-end gap-2"><button class="new-comment-save px-3 py-1 bg-blue-200 rounded" data-person="tom">Save Tom</button><button class="new-comment-save px-3 py-1 bg-indigo-200 rounded" data-person="mq">Save MQ</button></div></div>'
-      commentsEl.parentNode && commentsEl.parentNode.appendChild(newWrap)
-      window.HF.initCommentEditor(card, listingId)
-    }
+    window.HF.initCommentEditor(card, listingId)
 
   }catch(e){ content.innerHTML='<div class="text-red-600">Failed to load listing</div>'; console.error(e) }
 }

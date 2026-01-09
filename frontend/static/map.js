@@ -328,7 +328,6 @@ function buildInfoNode(item) {
   wrapper.appendChild(card)
   const cm = wrapper.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)
   window.HF.initVoteButtons(wrapper, item)
-  window.HF.setupCarousels()
   return wrapper
 }
 
@@ -344,6 +343,8 @@ function renderMarkers(listings) {
       const node = buildInfoNode(item)
       infoWindow.setContent(node)
       infoWindow.open({anchor: marker, map})
+      // Setup carousels after InfoWindow is opened and content is in DOM
+      setTimeout(() => { window.HF.setupCarousels() }, 100)
     })
     markers.push(marker)
     bounds.extend(marker.getPosition())

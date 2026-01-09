@@ -47,13 +47,11 @@ async function loadDetail(){
       ? `<div class="relative group"><div class="carousel" data-id="${data.id}">${images.map((u,i)=>`<img src=\"${u}\" class=\"carousel-img w-full h-72 object-cover rounded ${i===0?'':'hidden'}\" data-index=\"${i}\">`).join('')}</div><button class="carousel-prev absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">←</button><button class="carousel-next absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">→</button><div class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">${images.length} photos</div></div>`
       : (hero? `<img src="${hero}" class="w-full h-72 object-cover rounded">` : '')
 
-    const stats = `<div class="flex items-center gap-4 text-sm text-gray-700">${data.bedrooms?`<span>🛏 ${data.bedrooms}</span>`:''}${data.bathrooms?`<span>🛁 ${data.bathrooms}</span>`:''}${data.parking?`<span>🚗 ${data.parking}</span>`:''}</div>`
-    const price = data.price? `<div class="text-sm text-gray-800">${escapeHtml(data.price)}</div>`:''
-    const domain = data.url? `<a href="${data.url}" target="_blank" class="px-3 py-1 bg-gray-100 rounded text-sm">Domain</a>`:''
+    const domain = data.url? `<a href="${data.url}" target="_blank" class="px-2 py-1 rounded text-xs bg-gray-700 text-white hover:bg-gray-800">🏠 Domain</a>`:''
 
-    content.innerHTML = `<div class="bg-white rounded shadow p-4">${carousel}<div class="mt-3"><h2 class="text-lg font-semibold">${escapeHtml(data.address||data.headline||'')}</h2>${price}${stats}<div class="mt-2 flex items-center gap-2">${domain}</div></div><div id="detail-card" class="mt-3"></div></div>`
+    content.innerHTML = `<div class="bg-white rounded shadow p-4 relative">${carousel}<div id="detail-card" class="mt-3"></div><div class="mt-2 flex gap-2">${domain}</div></div>`
     const cardHost = document.getElementById('detail-card')
-    const card = window.HF.renderListingContent(null, data, {commentsMode:'all', compact:false, showLinks:false})
+    const card = window.HF.renderListingContent(null, data, {commentsMode:'all', compact:false, showLinks:false, showDomain:false})
     cardHost.appendChild(card)
 
     // Carousel controls

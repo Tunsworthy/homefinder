@@ -318,6 +318,7 @@ function renderList(listings) {
     const cm = el.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)
     window.HF.initVoteButtons(el, item)
   }
+  window.HF.setupCarousels()
 }
 
 function buildInfoNode(item) {
@@ -327,6 +328,7 @@ function buildInfoNode(item) {
   wrapper.appendChild(card)
   const cm = wrapper.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)
   window.HF.initVoteButtons(wrapper, item)
+  window.HF.setupCarousels()
   return wrapper
 }
 

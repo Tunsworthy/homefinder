@@ -146,7 +146,7 @@ function renderItem(item) {
   const card = window.HF.renderListingContent(null, item, {commentsMode:'top3', compact:false, showLinks:true, includeCommentEditor:true})
   wrapper.appendChild(card)
   container.appendChild(wrapper)
-  setupCarousels()
+  window.HF.setupCarousels()
   const commutesContainer = wrapper.querySelector('.commutes-container')
   if (commutesContainer) window.HF.loadAndRenderCommutes(item.id, commutesContainer, item)
   window.HF.initVoteButtons(wrapper, item)

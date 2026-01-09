@@ -54,5 +54,27 @@
     return el
   }
 
+  // Carousel navigation wiring
+  HF.setupCarousels = function(){
+    document.querySelectorAll('.carousel-prev, .carousel-next').forEach(button => {
+      if (button.dataset.bound === 'true') return;
+      button.dataset.bound = 'true';
+      button.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const carouselId = button.dataset.carouselId;
+        const container = document.querySelector(`.carousel-container[data-carousel-id="${carouselId}"]`);
+        if (!container) return;
+        const allImgs = container.querySelectorAll('.carousel-image');
+        const currentImg = container.querySelector('.carousel-image.active');
+        if (!currentImg || allImgs.length === 0) return;
+        const currentIndex = Number(currentImg.dataset.imageIndex);
+        const isNext = button.classList.contains('carousel-next');
+        const newIndex = isNext ? (currentIndex + 1) % allImgs.length : (currentIndex - 1 + allImgs.length) % allImgs.length;
+        currentImg.classList.remove('active'); currentImg.style.display = 'none';
+        allImgs[newIndex].classList.add('active'); allImgs[newIndex].style.display = 'block';
+      });
+    });
+  }
+
   window.HF = HF
 })()

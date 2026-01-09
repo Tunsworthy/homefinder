@@ -151,12 +151,14 @@ function renderItem(item) {
   if (commutesContainer) window.HF.loadAndRenderCommutes(item.id, commutesContainer, item)
   window.HF.initVoteButtons(wrapper, item)
   if (wrapper.querySelector('.comments-block')) window.HF.initCommentEditor(wrapper, item.id)
-  const imgs = wrapper.querySelectorAll('img:not(.carousel-image)')
+  const imgs = wrapper.querySelectorAll('img')
   imgs.forEach((img, idx) => {
     img.addEventListener('click', (e) => {
       e.preventDefault(); e.stopPropagation();
       const images = (item.images && item.images.length) ? item.images : (item.image ? [item.image] : [])
-      openImagePopup(img.src, images, idx)
+      const clickedImageSrc = img.src
+      const clickedIndex = images.indexOf(clickedImageSrc) >= 0 ? images.indexOf(clickedImageSrc) : 0
+      openImagePopup(clickedImageSrc, images, clickedIndex)
     })
   })
 }

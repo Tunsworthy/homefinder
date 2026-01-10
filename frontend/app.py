@@ -170,6 +170,7 @@ def api_listings():
             'travel_duration_text': data.get('travel_duration_text'),
             'travel_duration_seconds': data.get('travel_duration_seconds'),
             'status': data.get('status') or 'unknown',
+            'workflow_status': v.get('workflow_status', 'active'),
             'property_type': data.get('property_type'),
             'image': img,
             'images': all_images,  # Add all images for carousel
@@ -282,6 +283,7 @@ def api_listing(listing_id):
     data['mq_score'] = v.get('mq_score')
     data['tom_comment'] = v.get('tom_comment')
     data['mq_comment'] = v.get('mq_comment')
+    data['workflow_status'] = v.get('workflow_status', 'active')
     # route summary
     data['route_summary'] = extract_route_summary_from_listing(data)
     # pick non-agent image
@@ -352,6 +354,28 @@ def api_vote(listing_id):
     votes[key] = v
     save_votes(votes)
     return jsonify({'ok': True, 'tom': v.get('tom'), 'mq': v.get('mq'), 'tom_score': v.get('tom_score'), 'mq_score': v.get('mq_score')})
+
+
+@app.route('/api/listing/<listing_id>/status', methods=['POST'])
+def api_update_status(listing_id):
+    """Update the workflow status of a listing."""
+    payload = request.get_json() or {}
+    new_status = payload.get('workflow_status')
+    
+    # Validate status
+    valid_statuses = ['active', 'reviewed', 'enquiry_sent', 'inspection_planned', 'inspected', 'thinking', 'offer', 'rejected']
+    if new_status not in valid_statuses:
+        return jsonify({'ok': False, 'error': f'Invalid status. Must be one of: {", ".join(valid_statuses)}'}), 400
+    
+    # Load votes file (we'll store status there for now since listings are read-only from backend)
+    votes = load_votes()
+    key = str(listing_id)
+    v = votes.get(key, {})
+    v['workflow_status'] = new_status
+    votes[key] = v
+    save_votes(votes)
+    
+    return jsonify({'ok': True, 'workflow_status': new_status})
 
 
 @app.route('/api/listing/<listing_id>/comment', methods=['POST'])

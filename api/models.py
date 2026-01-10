@@ -43,6 +43,7 @@ class Listing(Base):
     image = Column(String(1000))  # Primary image
     images = Column(JSON)  # Array of all images
     status = Column(String(50), default='available', index=True)  # available, sold, off_market
+    workflow_status = Column(String(50), default='active', index=True)  # active, reviewed, enquiry_sent, inspection_planned, inspected, thinking, offer, rejected
     raw_data = Column(JSON)  # Store full original listing data
     created_at = Column(TIMESTAMP, default=datetime.utcnow, nullable=False)
     updated_at = Column(TIMESTAMP, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

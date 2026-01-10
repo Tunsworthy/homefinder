@@ -48,8 +48,22 @@ async function loadDetail(){
       : (hero? `<img src="${hero}" class="w-full h-72 object-cover rounded">` : '')
 
     const domain = data.url? `<a href="${data.url}" target="_blank" class="px-2 py-1 rounded text-xs bg-gray-700 text-white hover:bg-gray-800">🏠 Domain</a>`:''
+    
+    // Status selector
+    const statusOptions = [
+      {value: 'active', label: 'Active'},
+      {value: 'reviewed', label: 'Reviewed'},
+      {value: 'enquiry_sent', label: 'Enquiry Sent'},
+      {value: 'inspection_planned', label: 'Inspection Planned'},
+      {value: 'inspected', label: 'Inspected'},
+      {value: 'thinking', label: 'Thinking About It'},
+      {value: 'offer', label: 'Offer Made'},
+      {value: 'rejected', label: 'Rejected'}
+    ]
+    const currentStatus = data.workflow_status || 'active'
+    const statusDropdown = `<div class="mb-3"><label class="block text-sm font-medium mb-1">Status</label><select id="workflow-status-select" class="w-full p-2 border rounded">${statusOptions.map(opt => `<option value="${opt.value}" ${opt.value===currentStatus?'selected':''}>${opt.label}</option>`).join('')}</select></div>`
 
-    content.innerHTML = `<div class="bg-white rounded shadow p-4 relative">${carousel}<div id="detail-card" class="mt-3"></div></div>`
+    content.innerHTML = `<div class="bg-white rounded shadow p-4 relative">${carousel}${statusDropdown}<div id="detail-card" class="mt-3"></div></div>`
     const cardHost = document.getElementById('detail-card')
     const card = window.HF.renderListingContent(null, data, {commentsMode:'all', compact:false, showLinks:false, showDomain:true, skipImages:true, includeCommentEditor:true})
     cardHost.appendChild(card)
@@ -62,6 +76,38 @@ async function loadDetail(){
     const comm = card.querySelector('.commutes-container'); if (comm) window.HF.loadAndRenderCommutes(listingId, comm, data)
     window.HF.initVoteButtons(card, data)
     window.HF.initCommentEditor(card, listingId)
+
+    // Wire up status selector
+    const statusSelect = document.getElementById('workflow-status-select')
+    if (statusSelect) {
+      statusSelect.addEventListener('change', async () => {
+        const newStatus = statusSelect.value
+        try {
+          const resp = await fetch(`/api/listing/${listingId}/status`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({workflow_status: newStatus})
+          })
+          const result = await resp.json()
+          if (result.ok) {
+            // Update the status badge in the card
+            const statusBadge = card.querySelector('.inline-block.px-2.py-1.rounded.text-xs.font-medium')
+            if (statusBadge) {
+              const tempDiv = document.createElement('div')
+              tempDiv.innerHTML = window.HF.getStatusBadge(newStatus)
+              statusBadge.replaceWith(tempDiv.firstChild)
+            }
+          } else {
+            alert('Failed to update status: ' + (result.error || 'Unknown error'))
+            statusSelect.value = currentStatus
+          }
+        } catch (e) {
+          console.error('Status update failed', e)
+          alert('Failed to update status')
+          statusSelect.value = currentStatus
+        }
+      })
+    }
 
   }catch(e){ content.innerHTML='<div class="text-red-600">Failed to load listing</div>'; console.error(e) }
 }

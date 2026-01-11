@@ -231,6 +231,7 @@ def api_listings():
         summaries.append({
             'id': data.get('id') or p.stem,
             'address': data.get('address'),
+            'suburb': data.get('suburb'),
             'bedrooms': data.get('bedrooms'),
             'bathrooms': data.get('bathrooms'),
             'price': data.get('price'),

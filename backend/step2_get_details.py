@@ -10,6 +10,7 @@ DATA_DIR = os.environ.get("DATA_DIR", ".")
 LISTING_IDS_FILE = os.path.join(DATA_DIR, "listing_ids.json")
 OUTPUT_FOLDER = os.path.join(DATA_DIR, "listings")
 SUMMARY_CSV = os.path.join(DATA_DIR, "summary.csv")
+SUBURBS_FILE = os.path.join(DATA_DIR, "suburbs.json")
 
 BASE_URL = "https://www.domain.com.au/"
 
@@ -17,6 +18,42 @@ BASE_URL = "https://www.domain.com.au/"
 def load_listing_ids():
     with open(LISTING_IDS_FILE, "r") as f:
         return json.load(f)
+
+
+def load_suburbs():
+    """Load existing suburbs list or return empty set"""
+    if os.path.exists(SUBURBS_FILE):
+        with open(SUBURBS_FILE, "r", encoding="utf-8") as f:
+            return set(json.load(f))
+    return set()
+
+
+def save_suburbs(suburbs_set):
+    """Save suburbs list sorted alphabetically"""
+    with open(SUBURBS_FILE, "w", encoding="utf-8") as f:
+        json.dump(sorted(list(suburbs_set)), f, indent=2, ensure_ascii=False)
+
+
+def extract_suburb_from_address(address):
+    """
+    Extract suburb from address format: "Street Address, Suburb STATE Postcode"
+    Returns suburb or None if cannot parse
+    """
+    if not address:
+        return None
+    
+    parts = address.split(',')
+    if len(parts) < 2:
+        return None
+    
+    # Get the part after the first comma
+    after_comma = parts[1].strip()
+    
+    # Remove STATE and postcode (e.g., "NSW 2208")
+    # Pattern: space + 2-3 uppercase letters + space + 4 digits at end
+    suburb = re.sub(r'\s+[A-Z]{2,3}\s+\d{4}$', '', after_comma).strip()
+    
+    return suburb if suburb else None
 
 
 def extract_property_type(soup):
@@ -128,6 +165,7 @@ def parse_listing(html, listing_id):
     data = {"id": listing_id}
 
     data["address"] = extract_text(soup, "[data-testid='listing-details__button-copy-wrapper']")
+    data["suburb"] = extract_suburb_from_address(data["address"])
     data["price"] = extract_text(soup, "[data-testid='listing-details__summary-title']")
 
     # ✅ NEW: status + sold price
@@ -183,6 +221,7 @@ def main():
     ids = load_listing_ids()
     print(f"Found {len(ids)} IDs — scraping each listing…")
 
+    suburbs = load_suburbs()
     summary_rows = []
 
     for listing_id in ids:
@@ -194,10 +233,15 @@ def main():
         data = parse_listing(html, listing_id)
         save_listing_json(listing_id, data)
 
+        # Track suburb if found
+        if data.get("suburb"):
+            suburbs.add(data["suburb"])
+
         summary_rows.append({
             "id": listing_id,
             "url": data["url"],
             "address": data.get("address"),
+            "suburb": data.get("suburb"),
             "status": data.get("status"),
             "price": data.get("price"),
             "sold_price": data.get("sold_price"),
@@ -208,8 +252,12 @@ def main():
 
         time.sleep(0.4)
 
+    # Save suburbs list
+    save_suburbs(suburbs)
+    
     print("\n🎉 Done!")
     print(f"📁 Listing JSON stored in: {OUTPUT_FOLDER}/")
+    print(f"📍 Found {len(suburbs)} unique suburbs → {SUBURBS_FILE}")
 
 
 if __name__ == "__main__":

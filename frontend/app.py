@@ -1,8 +1,12 @@
 from flask import Flask, jsonify, render_template, send_from_directory, abort
 import os
 import json
+import time
 from pathlib import Path
 from flask import request
+from urllib.parse import urlencode
+from urllib.request import urlopen
+from datetime import datetime
 
 app = Flask(__name__, static_folder='static')
 
@@ -10,6 +14,7 @@ DATA_DIR = Path(os.environ.get('DATA_DIR', '/data'))
 LISTINGS_DIR = DATA_DIR / 'listings'
 LISTING_IDS_FILE = DATA_DIR / 'listing_ids.json'
 VOTES_FILE = DATA_DIR / 'votes.json'
+INSPECTION_PLANS_FILE = DATA_DIR / 'inspection_plans.json'
 
 
 PAGE_SIZE = 20
@@ -36,6 +41,23 @@ def save_votes(votes: dict):
         VOTES_FILE.parent.mkdir(parents=True, exist_ok=True)
         with VOTES_FILE.open('w', encoding='utf8') as f:
             json.dump(votes, f, indent=2)
+    except Exception:
+        pass
+
+
+def load_plans():
+    try:
+        with INSPECTION_PLANS_FILE.open('r', encoding='utf8') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_plans(plans: dict):
+    try:
+        INSPECTION_PLANS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with INSPECTION_PLANS_FILE.open('w', encoding='utf8') as f:
+            json.dump(plans, f, indent=2)
     except Exception:
         pass
 
@@ -79,6 +101,45 @@ def extract_route_summary_from_listing(data: dict):
         return None
 
 
+def get_listing_with_coords(listing_id: str):
+    """Load a listing JSON and derive lat/lng if available."""
+    if not LISTINGS_DIR.is_dir():
+        return None
+    path = LISTINGS_DIR / f"{listing_id}.json"
+    data = None
+    if path.exists():
+        data = load_listing_json(path)
+    else:
+        # fallback search
+        for p in LISTINGS_DIR.iterdir():
+            if p.suffix.lower() != '.json':
+                continue
+            d = load_listing_json(p)
+            if d and str(d.get('id')) == str(listing_id):
+                data = d
+                break
+    if not data:
+        return None
+
+    lat = data.get('lat')
+    lng = data.get('lng')
+    if lat is None or lng is None:
+        try:
+            g = data.get('google_transit') or {}
+            resp = g.get('response') or g.get('raw_response') or {}
+            leg = (resp.get('routes') or [{}])[0].get('legs', [{}])[0]
+            if leg and isinstance(leg, dict):
+                start_loc = leg.get('start_location') or {}
+                lat = start_loc.get('lat')
+                lng = start_loc.get('lng')
+        except Exception:
+            lat = None
+            lng = None
+    data['lat'] = lat
+    data['lng'] = lng
+    return data
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -88,6 +149,12 @@ def index():
 def map_page():
     maps_api_key = os.environ.get('MAPS_API_KEY', '')
     return render_template('map.html', maps_api_key=maps_api_key)
+
+
+@app.route('/plan')
+def plan_page():
+    maps_api_key = os.environ.get('MAPS_API_KEY', '')
+    return render_template('plan.html', maps_api_key=maps_api_key)
 
 
 @app.route('/listing/<listing_id>')
@@ -376,6 +443,84 @@ def api_update_status(listing_id):
     save_votes(votes)
     
     return jsonify({'ok': True, 'workflow_status': new_status})
+
+
+def fetch_directions_minutes(origin_lat, origin_lng, dest_lat, dest_lng, mode, api_key):
+    try:
+        params = {
+            'origin': f"{origin_lat},{origin_lng}",
+            'destination': f"{dest_lat},{dest_lng}",
+            'mode': mode,
+            'key': api_key,
+        }
+        url = f"https://maps.googleapis.com/maps/api/directions/json?{urlencode(params)}"
+        with urlopen(url, timeout=8) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+        routes = data.get('routes') or []
+        if not routes:
+            return None
+        legs = routes[0].get('legs') or []
+        if not legs:
+            return None
+        dur = legs[0].get('duration', {}).get('value')
+        if dur is None:
+            return None
+        return round(dur / 60)
+    except Exception:
+        return None
+
+
+@app.route('/api/inspection-plans', methods=['GET', 'POST'])
+def api_inspection_plans():
+    plans = load_plans()
+    if request.method == 'GET':
+        return jsonify({'ok': True, 'plans': plans})
+
+    payload = request.get_json() or {}
+    plan_id = payload.get('id') or str(int(time.time()))
+    plan = {
+        'id': plan_id,
+        'date': payload.get('date'),
+        'mode': payload.get('mode', 'driving'),
+        'stops': payload.get('stops', []),
+        'updated_at': datetime.utcnow().isoformat(),
+    }
+    plans[plan_id] = plan
+    save_plans(plans)
+    return jsonify({'ok': True, 'plan': plan})
+
+
+@app.route('/api/inspection-plans/<plan_id>/route')
+def api_inspection_plan_route(plan_id):
+    plans = load_plans()
+    plan = plans.get(plan_id)
+    if not plan:
+        return jsonify({'ok': False, 'error': 'plan not found'}), 404
+
+    mode = request.args.get('mode', plan.get('mode', 'driving'))
+    mode = 'walking' if mode == 'walking' else 'driving'
+    stops = plan.get('stops', [])
+    api_key = os.environ.get('MAPS_API_KEY', '')
+    legs = []
+
+    for i in range(len(stops) - 1):
+        a = stops[i]
+        b = stops[i + 1]
+        b_override = b.get('override_minutes')
+        if b_override is not None:
+            legs.append({'from': a.get('listing_id'), 'to': b.get('listing_id'), 'minutes': b_override, 'source': 'manual'})
+            continue
+
+        la = get_listing_with_coords(a.get('listing_id'))
+        lb = get_listing_with_coords(b.get('listing_id'))
+        if not la or not lb or la.get('lat') is None or la.get('lng') is None or lb.get('lat') is None or lb.get('lng') is None:
+            legs.append({'from': a.get('listing_id'), 'to': b.get('listing_id'), 'minutes': None, 'source': 'missing_coords'})
+            continue
+
+        minutes = fetch_directions_minutes(la['lat'], la['lng'], lb['lat'], lb['lng'], mode, api_key)
+        legs.append({'from': a.get('listing_id'), 'to': b.get('listing_id'), 'minutes': minutes, 'source': 'directions' if minutes is not None else 'unavailable'})
+
+    return jsonify({'ok': True, 'mode': mode, 'legs': legs, 'plan': plan})
 
 
 @app.route('/api/listing/<listing_id>/comment', methods=['POST'])

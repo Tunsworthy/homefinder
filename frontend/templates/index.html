@@ -8,24 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   </head>
   <body class="bg-gray-100 text-gray-900">
-    <!-- Top Navigation Bar -->
-    <nav class="bg-white shadow sticky top-0 z-40">
-      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
-        <!-- Hamburger Menu -->
-        <div class="relative">
-          <button id="nav-menu-toggle" class="p-2 hover:bg-gray-100 rounded" aria-label="Menu">
-            <i class="fa-solid fa-bars text-lg"></i>
-          </button>
-          <div id="nav-menu" class="hidden absolute left-0 mt-2 w-48 bg-white border rounded shadow z-50">
-            <a href="/" class="block px-4 py-2 hover:bg-gray-100 text-sm">List View</a>
-            <a href="/map" class="block px-4 py-2 hover:bg-gray-100 text-sm">Map View</a>
-          </div>
-        </div>
-        <!-- Page Title -->
-        <h1 class="text-xl font-semibold">Listings</h1>
-      </div>
-    </nav>
-
+    <div id="navbar"></div>
     <div class="max-w-6xl mx-auto p-4">
       <div class="flex items-center justify-between bg-white p-3 rounded shadow mb-4">
         <div>
@@ -102,19 +85,12 @@
       </div>
     </div>
     <script>
-      // Hamburger menu toggle
-      document.getElementById('nav-menu-toggle').addEventListener('click', () => {
-        const menu = document.getElementById('nav-menu');
-        menu.classList.toggle('hidden');
-      });
-      // Close menu when a link is clicked
-      document.querySelectorAll('#nav-menu a').forEach(link => {
-        link.addEventListener('click', () => {
-          document.getElementById('nav-menu').classList.add('hidden');
-        });
-      });
+      window.HF = window.HF || {};
     </script>
     <script src="/static/components.js"></script>
+    <script>
+      window.HF.renderNavbar('Listings');
+    </script>
     <script src="/static/app.js"></script>
   </body>
 </html>

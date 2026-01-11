@@ -359,6 +359,58 @@ async function fetchListings() {
   return filteredItems
 }
 
+// Helper to add listing to inspection plan
+async function addListingToPlan(listingId, address) {
+  const planDate = prompt('Enter date for this inspection (YYYY-MM-DD):', new Date().toISOString().split('T')[0])
+  if (!planDate) return
+  
+  try {
+    // Get or create a plan for the date
+    const res = await fetch('/api/inspection-plans')
+    const plans = await res.json()
+    
+    let planId = null
+    // Look for existing plan on that date
+    for (const [id, plan] of Object.entries(plans)) {
+      if (plan.date === planDate) {
+        planId = id
+        break
+      }
+    }
+    
+    // If no plan exists, create one
+    if (!planId) {
+      planId = 'plan_' + Date.now()
+      const newPlan = {
+        id: planId,
+        date: planDate,
+        mode: 'driving',
+        stops: [{listing_id: listingId}],
+        updated_at: new Date().toISOString()
+      }
+      plans[planId] = newPlan
+    } else {
+      // Add to existing plan if not already there
+      const plan = plans[planId]
+      if (!plan.stops.find(s => s.listing_id === listingId)) {
+        plan.stops.push({listing_id: listingId})
+        plan.updated_at = new Date().toISOString()
+      }
+    }
+    
+    // Save plans
+    await fetch('/api/inspection-plans', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(plans)
+    })
+    
+    alert(`Added to inspection plan for ${planDate}`)
+  } catch (e) {
+    alert('Error adding to plan: ' + e.message)
+  }
+}
+
 function clearMarkers() {
   for (const m of markers) {
     try { m.setMap(null) } catch (e) {}
@@ -378,6 +430,14 @@ function renderList(listings) {
     el.className = 'border rounded p-3 relative'
     const card = window.HF.renderListingContent(null, item, {commentsMode:'top3', compact:true, showLinks:true})
     el.appendChild(card)
+    
+    // Add "Add to Plan" button
+    const planBtn = document.createElement('button')
+    planBtn.className = 'mt-2 w-full px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700'
+    planBtn.textContent = '+ Add to Inspection Plan'
+    planBtn.addEventListener('click', () => addListingToPlan(item.id, item.address))
+    el.appendChild(planBtn)
+    
     container.appendChild(el)
     const cm = el.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)
     window.HF.initVoteButtons(el, item)
@@ -401,6 +461,14 @@ function buildInfoNode(item) {
   wrapper.className = 'max-w-xs relative'
   const card = window.HF.renderListingContent(null, item, {commentsMode:'latest', compact:true, showLinks:true})
   wrapper.appendChild(card)
+  
+  // Add "Add to Plan" button
+  const planBtn = document.createElement('button')
+  planBtn.className = 'mt-2 w-full px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700'
+  planBtn.textContent = '+ Add to Inspection Plan'
+  planBtn.addEventListener('click', () => addListingToPlan(item.id, item.address))
+  wrapper.appendChild(planBtn)
+  
   const cm = wrapper.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)
   window.HF.initVoteButtons(wrapper, item)
   // Attach image click handlers for popup zoom

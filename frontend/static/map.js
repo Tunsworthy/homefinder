@@ -359,53 +359,68 @@ async function fetchListings() {
   return filteredItems
 }
 
-// Helper to add listing to inspection plan
+// Helper to add listing to inspection plan - now using plan selector
 async function addListingToPlan(listingId, address) {
-  const planDate = prompt('Enter date for this inspection (YYYY-MM-DD):', new Date().toISOString().split('T')[0])
-  if (!planDate) return
-  
   try {
-    // Get or create a plan for the date
     const res = await fetch('/api/inspection-plans')
-    const plans = await res.json()
+    const data = await res.json()
+    const plans = data.plans || {}
+    
+    const plansList = Object.entries(plans).map(([id, plan]) => ({
+      id,
+      label: `${plan.date || 'No date'} - ${plan.mode} (${(plan.stops || []).length} stops)`
+    }))
     
     let planId = null
-    // Look for existing plan on that date
-    for (const [id, plan] of Object.entries(plans)) {
-      if (plan.date === planDate) {
-        planId = id
-        break
-      }
-    }
-    
-    // If no plan exists, create one
-    if (!planId) {
+    if (plansList.length === 0) {
+      // Create new plan
+      const newDate = prompt('Enter date for new plan (YYYY-MM-DD):', new Date().toISOString().split('T')[0])
+      if (!newDate) return
       planId = 'plan_' + Date.now()
       const newPlan = {
         id: planId,
-        date: planDate,
+        date: newDate,
         mode: 'driving',
         stops: [{listing_id: listingId}],
         updated_at: new Date().toISOString()
       }
       plans[planId] = newPlan
     } else {
-      // Add to existing plan if not already there
-      const plan = plans[planId]
-      if (!plan.stops.find(s => s.listing_id === listingId)) {
-        plan.stops.push({listing_id: listingId})
-        plan.updated_at = new Date().toISOString()
+      // Show list of plans
+      const choices = plansList.map(p => p.label).join('\n')
+      const choice = prompt(`Select a plan (or cancel to create new):\n${choices}\n\nEnter plan date or new date:`, '')
+      if (choice === null) return
+      
+      // Find matching plan
+      const matching = plansList.find(p => p.label.includes(choice))
+      if (matching) {
+        planId = matching.id
+        const plan = plans[planId]
+        if (!plan.stops.find(s => s.listing_id === listingId)) {
+          plan.stops.push({listing_id: listingId})
+          plan.updated_at = new Date().toISOString()
+        }
+      } else {
+        // Create new plan with the entered date
+        planId = 'plan_' + Date.now()
+        const newPlan = {
+          id: planId,
+          date: choice,
+          mode: 'driving',
+          stops: [{listing_id: listingId}],
+          updated_at: new Date().toISOString()
+        }
+        plans[planId] = newPlan
       }
     }
     
-    // Save plans
     await fetch('/api/inspection-plans', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(plans)
+      body: JSON.stringify(plans[planId])
     })
     
-    alert(`Added to inspection plan for ${planDate}`)
+    alert(`Added to inspection plan`)
   } catch (e) {
     alert('Error adding to plan: ' + e.message)
   }

@@ -1,6 +1,7 @@
 (() => {
-  let currentPlan = { id: null, date: null, mode: 'driving', stops: [] }
+  let currentPlan = { id: null, name: '', date: null, start_time: '', end_time: '', mode: 'driving', stops: [] }
   let allListings = []
+  let draggedIndex = null
 
   // Load all listings for the dropdown
   async function loadListings() {
@@ -25,16 +26,46 @@
     box.innerHTML = ''
     currentPlan.stops.forEach((s, idx) => {
       const listing = allListings.find(l => l.id === s.listing_id)
-      const addr = listing ? `${listing.address}` : s.listing_id || 'Unknown'
+      const addr = listing ? `${listing.suburb || 'Unknown'} - ${listing.address}` : s.listing_id || 'Unknown'
       const row = document.createElement('div')
-      row.className = 'flex items-center gap-2'
+      row.className = 'flex items-center gap-2 p-2 bg-gray-50 rounded border cursor-move hover:bg-gray-100'
+      row.draggable = true
+      row.dataset.idx = idx
       row.innerHTML = `
+        <div class="text-gray-400"><i class="fa-solid fa-grip-vertical"></i></div>
         <div class="flex-1 text-sm">${addr}</div>
         <input class="border rounded px-2 py-1 w-32 stop-override" data-idx="${idx}" type="number" min="0" value="${s.override_minutes??''}" placeholder="Override min">
         <button class="px-2 py-1 text-sm bg-red-100 text-red-700 rounded rm-stop" data-idx="${idx}">✕</button>
       `
+      
+      // Drag and drop handlers
+      row.addEventListener('dragstart', (e) => {
+        draggedIndex = idx
+        row.classList.add('opacity-50')
+      })
+      
+      row.addEventListener('dragend', (e) => {
+        row.classList.remove('opacity-50')
+        draggedIndex = null
+      })
+      
+      row.addEventListener('dragover', (e) => {
+        e.preventDefault()
+      })
+      
+      row.addEventListener('drop', (e) => {
+        e.preventDefault()
+        const dropIdx = parseInt(row.dataset.idx)
+        if (draggedIndex !== null && draggedIndex !== dropIdx) {
+          const [removed] = currentPlan.stops.splice(draggedIndex, 1)
+          currentPlan.stops.splice(dropIdx, 0, removed)
+          renderStops()
+        }
+      })
+      
       box.appendChild(row)
     })
+    
     document.querySelectorAll('.stop-override').forEach(inp => {
       inp.onchange = () => {
         const v = inp.value.trim()
@@ -108,9 +139,11 @@
         const card = document.createElement('div')
         card.className = 'border rounded p-3 cursor-pointer hover:bg-gray-50'
         const stopCount = (plan.stops || []).length
+        const timeRange = plan.start_time && plan.end_time ? `${plan.start_time}-${plan.end_time}` : ''
         card.innerHTML = `
-          <div class="font-medium text-sm">${plan.date || 'No date'}</div>
-          <div class="text-xs text-gray-600">${plan.mode} • ${stopCount} stop${stopCount!==1?'s':''}</div>
+          <div class="font-medium text-sm">${plan.name || 'Unnamed Plan'}</div>
+          <div class="text-xs text-gray-600">${plan.date || 'No date'} ${timeRange}</div>
+          <div class="text-xs text-gray-500">${plan.mode} • ${stopCount} stop${stopCount!==1?'s':''}</div>
           <div class="text-xs text-gray-500 mt-1">${plan.stops?.slice(0,2).map(s => {
             const l = allListings.find(x => x.id === s.listing_id)
             return l?.suburb || 'Unknown'
@@ -127,22 +160,44 @@
 
   function loadPlan(plan) {
     currentPlan = JSON.parse(JSON.stringify(plan))
+    document.getElementById('plan-name').value = currentPlan.name || ''
     document.getElementById('plan-date').value = currentPlan.date || ''
+    document.getElementById('plan-start-time').value = currentPlan.start_time || ''
+    document.getElementById('plan-end-time').value = currentPlan.end_time || ''
     document.getElementById('plan-mode').value = currentPlan.mode || 'driving'
     renderStops()
   }
 
   document.getElementById('create-new-plan').onclick = () => {
-    currentPlan = { id: null, date: new Date().toISOString().split('T')[0], mode: 'driving', stops: [] }
+    currentPlan = { 
+      id: null, 
+      name: '', 
+      date: new Date().toISOString().split('T')[0], 
+      start_time: '09:00',
+      end_time: '17:00',
+      mode: 'driving', 
+      stops: [] 
+    }
+    document.getElementById('plan-name').value = ''
     document.getElementById('plan-date').value = currentPlan.date
+    document.getElementById('plan-start-time').value = currentPlan.start_time
+    document.getElementById('plan-end-time').value = currentPlan.end_time
     document.getElementById('plan-mode').value = 'driving'
     renderStops()
-    renderPlansList()
   }
 
   document.getElementById('save-plan').onclick = async () => {
+    currentPlan.name = document.getElementById('plan-name').value || 'Unnamed Plan'
     currentPlan.date = document.getElementById('plan-date').value || null
+    currentPlan.start_time = document.getElementById('plan-start-time').value || null
+    currentPlan.end_time = document.getElementById('plan-end-time').value || null
     currentPlan.mode = document.getElementById('plan-mode').value || 'driving'
+    
+    if (!currentPlan.name.trim()) {
+      alert('Please enter a plan name')
+      return
+    }
+    
     try {
       const res = await fetch('/api/inspection-plans', {
         method: 'POST',
@@ -195,7 +250,10 @@
         const existing = Object.values(j.plans || {})
         if (existing.length) {
           currentPlan = existing[0]
+          document.getElementById('plan-name').value = currentPlan.name || ''
           document.getElementById('plan-date').value = currentPlan.date || ''
+          document.getElementById('plan-start-time').value = currentPlan.start_time || ''
+          document.getElementById('plan-end-time').value = currentPlan.end_time || ''
           document.getElementById('plan-mode').value = currentPlan.mode || 'driving'
         }
       }

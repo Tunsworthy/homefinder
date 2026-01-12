@@ -359,72 +359,109 @@ async function fetchListings() {
   return filteredItems
 }
 
-// Helper to add listing to inspection plan - now using plan selector
-async function addListingToPlan(listingId, address) {
+// Helper to add listing to inspection plan - using modal window
+let pendingListingId = null
+
+async function loadPlansIntoDropdown() {
+  const selectEl = document.getElementById('plan-select')
   try {
     const res = await fetch('/api/inspection-plans')
     const data = await res.json()
     const plans = data.plans || {}
     
-    const plansList = Object.entries(plans).map(([id, plan]) => ({
-      id,
-      label: `${plan.date || 'No date'} - ${plan.mode} (${(plan.stops || []).length} stops)`
-    }))
+    selectEl.innerHTML = '<option value="">-- Select Existing Plan --</option>'
     
-    let planId = null
-    if (plansList.length === 0) {
+    Object.values(plans).forEach(plan => {
+      const opt = document.createElement('option')
+      opt.value = plan.id
+      opt.textContent = `${plan.name || 'Unnamed'} (${plan.date || 'No date'}) - ${(plan.stops || []).length} stops`
+      selectEl.appendChild(opt)
+    })
+    
+    // Set today's date as default for new plan
+    document.getElementById('new-plan-date').value = new Date().toISOString().split('T')[0]
+  } catch (e) {
+    console.error('Failed to load plans', e)
+    selectEl.innerHTML = '<option value="">Error loading plans</option>'
+  }
+}
+
+function showAddToPlanModal(listingId) {
+  pendingListingId = listingId
+  loadPlansIntoDropdown()
+  document.getElementById('add-to-plan-modal').classList.remove('hidden')
+  document.getElementById('new-plan-name').value = ''
+}
+
+function hideAddToPlanModal() {
+  document.getElementById('add-to-plan-modal').classList.add('hidden')
+  pendingListingId = null
+}
+
+async function addListingToPlan(listingId) {
+  showAddToPlanModal(listingId)
+}
+
+// Modal handlers
+document.getElementById('plan-modal-cancel')?.addEventListener('click', hideAddToPlanModal)
+
+document.getElementById('add-to-plan-modal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'add-to-plan-modal') hideAddToPlanModal()
+})
+
+document.getElementById('plan-modal-add')?.addEventListener('click', async () => {
+  if (!pendingListingId) return
+  
+  const selectedPlanId = document.getElementById('plan-select').value
+  const newPlanName = document.getElementById('new-plan-name').value.trim()
+  
+  try {
+    const res = await fetch('/api/inspection-plans')
+    const data = await res.json()
+    const plans = data.plans || {}
+    
+    let planToUpdate = null
+    
+    if (selectedPlanId && plans[selectedPlanId]) {
+      // Add to existing plan
+      planToUpdate = plans[selectedPlanId]
+      if (planToUpdate.stops.find(s => s.listing_id === pendingListingId)) {
+        alert('This listing is already in the selected plan')
+        return
+      }
+      planToUpdate.stops.push({ listing_id: pendingListingId })
+      planToUpdate.updated_at = new Date().toISOString()
+    } else if (newPlanName) {
       // Create new plan
-      const newDate = prompt('Enter date for new plan (YYYY-MM-DD):', new Date().toISOString().split('T')[0])
-      if (!newDate) return
-      planId = 'plan_' + Date.now()
-      const newPlan = {
+      const newPlanDate = document.getElementById('new-plan-date').value
+      const planId = 'plan_' + Date.now()
+      planToUpdate = {
         id: planId,
-        date: newDate,
+        name: newPlanName,
+        date: newPlanDate,
+        start_time: '09:00',
+        end_time: '17:00',
         mode: 'driving',
-        stops: [{listing_id: listingId}],
+        stops: [{ listing_id: pendingListingId }],
         updated_at: new Date().toISOString()
       }
-      plans[planId] = newPlan
     } else {
-      // Show list of plans
-      const choices = plansList.map(p => p.label).join('\n')
-      const choice = prompt(`Select a plan (or cancel to create new):\n${choices}\n\nEnter plan date or new date:`, '')
-      if (choice === null) return
-      
-      // Find matching plan
-      const matching = plansList.find(p => p.label.includes(choice))
-      if (matching) {
-        planId = matching.id
-        const plan = plans[planId]
-        if (!plan.stops.find(s => s.listing_id === listingId)) {
-          plan.stops.push({listing_id: listingId})
-          plan.updated_at = new Date().toISOString()
-        }
-      } else {
-        // Create new plan with the entered date
-        planId = 'plan_' + Date.now()
-        const newPlan = {
-          id: planId,
-          date: choice,
-          mode: 'driving',
-          stops: [{listing_id: listingId}],
-          updated_at: new Date().toISOString()
-        }
-        plans[planId] = newPlan
-      }
+      alert('Please select an existing plan or enter a name for a new plan')
+      return
     }
     
     await fetch('/api/inspection-plans', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(plans[planId])
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(planToUpdate)
     })
     
-    alert(`Added to inspection plan`)
+    alert(`Added to plan: ${planToUpdate.name}`)
+    hideAddToPlanModal()
   } catch (e) {
     alert('Error adding to plan: ' + e.message)
   }
-}
+})
 
 function clearMarkers() {
   for (const m of markers) {

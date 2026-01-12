@@ -25,8 +25,20 @@
       <div class="flex flex-col gap-4 bg-white rounded shadow p-4">
         <div class="flex flex-wrap gap-3 items-end">
           <div>
+            <label class="block text-xs text-gray-600 mb-1">Plan Name</label>
+            <input id="plan-name" type="text" class="border rounded px-3 py-2 w-48" placeholder="e.g., Saturday Inspections" />
+          </div>
+          <div>
             <label class="block text-xs text-gray-600 mb-1">Date</label>
             <input id="plan-date" type="date" class="border rounded px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-600 mb-1">Start Time</label>
+            <input id="plan-start-time" type="time" class="border rounded px-2 py-2" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-600 mb-1">End Time</label>
+            <input id="plan-end-time" type="time" class="border rounded px-2 py-2" />
           </div>
           <div>
             <label class="block text-xs text-gray-600 mb-1">Mode</label>
@@ -41,10 +53,10 @@
 
         <div class="border-t pt-4">
           <div class="flex justify-between items-center mb-3">
-            <div class="font-medium text-sm">Stops</div>
+            <div class="font-medium text-sm">Stops (drag to reorder)</div>
             <button id="add-stop" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-xs">+ Add Stop</button>
           </div>
-          <div id="stops" class="space-y-2 max-h-64 overflow-y-auto"></div>
+          <div id="stops" class="space-y-2 max-h-96 overflow-y-auto"></div>
         </div>
 
         <div class="border-t pt-4">

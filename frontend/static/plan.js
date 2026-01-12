@@ -28,13 +28,19 @@
       const listing = allListings.find(l => l.id === s.listing_id)
       const addr = listing ? `${listing.suburb || 'Unknown'} - ${listing.address}` : s.listing_id || 'Unknown'
       const row = document.createElement('div')
-      row.className = 'flex items-center gap-2 p-2 bg-gray-50 rounded border cursor-move hover:bg-gray-100'
+      row.className = 'flex items-center gap-2 p-3 bg-gray-50 rounded border cursor-move hover:bg-gray-100'
       row.draggable = true
       row.dataset.idx = idx
       row.innerHTML = `
         <div class="text-gray-400"><i class="fa-solid fa-grip-vertical"></i></div>
-        <div class="flex-1 text-sm">${addr}</div>
-        <input class="border rounded px-2 py-1 w-32 stop-override" data-idx="${idx}" type="number" min="0" value="${s.override_minutes??''}" placeholder="Override min">
+        <div class="flex-1">
+          <div class="text-sm font-medium">${addr}</div>
+          <div class="flex gap-2 mt-1">
+            <input class="border rounded px-2 py-1 text-xs stop-open-time" data-idx="${idx}" type="time" value="${s.open_time||''}" placeholder="Open" title="Property open time">
+            <input class="border rounded px-2 py-1 text-xs stop-close-time" data-idx="${idx}" type="time" value="${s.close_time||''}" placeholder="Close" title="Property close time">
+            <input class="border rounded px-2 py-1 w-20 text-xs stop-override" data-idx="${idx}" type="number" min="0" value="${s.override_minutes??''}" placeholder="Travel min">
+          </div>
+        </div>
         <button class="px-2 py-1 text-sm bg-red-100 text-red-700 rounded rm-stop" data-idx="${idx}">✕</button>
       `
       
@@ -66,6 +72,16 @@
       box.appendChild(row)
     })
     
+    document.querySelectorAll('.stop-open-time').forEach(inp => {
+      inp.onchange = () => {
+        currentPlan.stops[Number(inp.dataset.idx)].open_time = inp.value || null
+      }
+    })
+    document.querySelectorAll('.stop-close-time').forEach(inp => {
+      inp.onchange = () => {
+        currentPlan.stops[Number(inp.dataset.idx)].close_time = inp.value || null
+      }
+    })
     document.querySelectorAll('.stop-override').forEach(inp => {
       inp.onchange = () => {
         const v = inp.value.trim()

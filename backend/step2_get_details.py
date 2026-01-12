@@ -114,6 +114,57 @@ def extract_features(soup):
     return features
 
 
+def extract_inspection_times(soup):
+    """Extract inspection times from the listing page"""
+    inspections = []
+    try:
+        inspections_section = soup.find("div", {"data-testid": "listing-details__inspections"})
+        if not inspections_section:
+            return inspections
+        
+        # Find all inspection blocks (exclude auction section)
+        for block in inspections_section.find_all("div", {"data-testid": "listing-details__inspections-block"}):
+            # Check if this block is in the auction section
+            if block.find_parent("div", {"data-testid": "listing-details__auction-times"}):
+                continue
+            
+            day_el = block.find("span", {"data-testid": "listing-details__inspections-block-day"})
+            time_el = block.find("span", {"data-testid": "listing-details__inspections-block-time"})
+            
+            if day_el and time_el:
+                inspections.append({
+                    "day": day_el.get_text(strip=True),
+                    "time": time_el.get_text(strip=True)
+                })
+    except Exception as e:
+        print(f"Error extracting inspection times: {e}")
+    
+    return inspections
+
+
+def extract_auction_times(soup):
+    """Extract auction times from the listing page"""
+    auctions = []
+    try:
+        auction_section = soup.find("div", {"data-testid": "listing-details__auction-times"})
+        if not auction_section:
+            return auctions
+        
+        for block in auction_section.find_all("div", {"data-testid": "listing-details__inspections-block"}):
+            day_el = block.find("span", {"data-testid": "listing-details__inspections-block-day"})
+            time_el = block.find("span", {"data-testid": "listing-details__inspections-block-time"})
+            
+            if day_el and time_el:
+                auctions.append({
+                    "day": day_el.get_text(strip=True),
+                    "time": time_el.get_text(strip=True)
+                })
+    except Exception as e:
+        print(f"Error extracting auction times: {e}")
+    
+    return auctions
+
+
 def fetch_listing_html(listing_id):
     url = BASE_URL + listing_id
     headers = {
@@ -144,7 +195,7 @@ def extract_text(soup, selector):
 
 
 # ✅ NEW: sold detection helper
-def extract_status_and_sold_price(price_text: str):
+def extract_status_and_sold_price(price_text):
     if not price_text:
         return "unknown", None
 
@@ -186,6 +237,10 @@ def parse_listing(html, listing_id):
 
     data["agent_name"] = extract_text(soup, "[data-testid='listing-details__agent-name']")
     data["agent_phone"] = extract_text(soup, "[data-testid='listing-details__agent-phone']")
+
+    # ✅ NEW: inspection and auction times
+    data["inspections"] = extract_inspection_times(soup)
+    data["auctions"] = extract_auction_times(soup)
 
     images = []
     for img in soup.select("img[src]"):

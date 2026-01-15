@@ -67,7 +67,7 @@ async function loadDetail(){
     let inspectionsHtml = ''
     if (data.inspections && data.inspections.length > 0) {
       inspectionsHtml = `
-        <div class="mb-3 border-t pt-3">
+        <div class="mb-3">
           <h3 class="text-sm font-semibold mb-2">🗓️ Inspection Times</h3>
           <div class="space-y-2">
             ${data.inspections.map((insp, idx) => `

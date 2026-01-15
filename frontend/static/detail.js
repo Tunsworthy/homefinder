@@ -88,10 +88,20 @@ async function loadDetail(){
       `
     }
 
-    content.innerHTML = `<div class="bg-white rounded shadow p-4 relative">${carousel}${statusDropdown}${inspectionsHtml}<div id="detail-card" class="mt-3"></div></div>`
+    content.innerHTML = `<div class="bg-white rounded shadow p-4 relative">${carousel}${statusDropdown}<div id="detail-card" class="mt-3"></div></div>`
     const cardHost = document.getElementById('detail-card')
     const card = window.HF.renderListingContent(null, data, {commentsMode:'all', compact:false, showLinks:false, showDomain:true, skipImages:true, includeCommentEditor:true})
     cardHost.appendChild(card)
+    
+    // Insert inspections after votes but before comments
+    if (inspectionsHtml) {
+      const commentsBlock = card.querySelector('.comments-block')
+      if (commentsBlock) {
+        const inspDiv = document.createElement('div')
+        inspDiv.innerHTML = inspectionsHtml
+        commentsBlock.parentNode.insertBefore(inspDiv.firstElementChild, commentsBlock)
+      }
+    }
 
     // Carousel controls
     const prev=document.querySelector('.carousel-prev'); const next=document.querySelector('.carousel-next'); const imgs=[...document.querySelectorAll('.carousel-img')] 

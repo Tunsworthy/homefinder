@@ -65,3 +65,12 @@ jobs:
           push: true
           tags: ghcr.io/tunsworthy/housefinder_api:latest
           platforms: linux/arm64/v8
+
+      - name: Trigger Deployment
+        if: steps.filter.outputs.FrontEnd == 'true' || steps.filter.outputs.BackEnd == 'true' || steps.filter.outputs.API == 'true'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.DEPLOY_TOKEN }}
+          repository: Tunsworthy/pi-dockercompose
+          event-type: deploy-container
+          client-payload: '{"branch": "housefindertest", "folder": "housefinder"}'

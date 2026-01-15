@@ -254,6 +254,8 @@ def api_listings():
             'lat': lat,
             'lng': lng,
             'comments': comments_sorted[:3],
+            'inspections': data.get('inspections', []),
+            'auctions': data.get('auctions', []),
         })
 
     total = len(summaries)

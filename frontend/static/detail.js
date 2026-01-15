@@ -139,7 +139,7 @@ async function loadDetail(){
       btn.addEventListener('click', () => {
         const day = btn.dataset.day
         const time = btn.dataset.time
-        showAddToPlanModal(data.id, day, time)
+        HF.showAddToPlanModal(data.id, day, time)
       })
     })
 

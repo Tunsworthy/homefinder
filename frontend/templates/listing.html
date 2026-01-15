@@ -54,18 +54,6 @@
     </div>
 
     <script>
-      // Hamburger menu toggle
-      document.getElementById('nav-menu-toggle').addEventListener('click', () => {
-        const menu = document.getElementById('nav-menu');
-        menu.classList.toggle('hidden');
-      });
-      // Close menu when a link is clicked
-      document.querySelectorAll('#nav-menu a').forEach(link => {
-        link.addEventListener('click', () => {
-          document.getElementById('nav-menu').classList.add('hidden');
-        });
-      });
-      
       const listingId = "{{ listing_id }}";
     </script>
     <script src="/static/components.js"></script>

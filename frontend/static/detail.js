@@ -295,5 +295,4 @@ document.getElementById('plan-modal-add-detail')?.addEventListener('click', asyn
   }
 })
 
-HF.renderNavbar('Listing Details')
 loadDetail()

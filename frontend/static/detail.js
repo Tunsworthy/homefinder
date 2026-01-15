@@ -63,7 +63,32 @@ async function loadDetail(){
     const currentStatus = data.workflow_status || 'active'
     const statusDropdown = `<div class="mb-3"><label class="block text-sm font-medium mb-1">Status</label><select id="workflow-status-select" class="w-full p-2 border rounded">${statusOptions.map(opt => `<option value="${opt.value}" ${opt.value===currentStatus?'selected':''}>${opt.label}</option>`).join('')}</select></div>`
 
-    content.innerHTML = `<div class="bg-white rounded shadow p-4 relative">${carousel}${statusDropdown}<div id="detail-card" class="mt-3"></div></div>`
+    // Build inspections section
+    let inspectionsHtml = ''
+    if (data.inspections && data.inspections.length > 0) {
+      inspectionsHtml = `
+        <div class="mb-3 border-t pt-3">
+          <h3 class="text-sm font-semibold mb-2">🗓️ Inspection Times</h3>
+          <div class="space-y-2">
+            ${data.inspections.map((insp, idx) => `
+              <div class="flex items-center justify-between p-2 bg-blue-50 rounded">
+                <div>
+                  <div class="text-sm font-medium">${escapeHtml(insp.day)}</div>
+                  <div class="text-xs text-gray-600">${escapeHtml(insp.time)}</div>
+                </div>
+                <button class="add-inspection-to-plan px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700" 
+                  data-day="${escapeHtml(insp.day)}" 
+                  data-time="${escapeHtml(insp.time)}">
+                  + Add to Plan
+                </button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `
+    }
+
+    content.innerHTML = `<div class="bg-white rounded shadow p-4 relative">${carousel}${statusDropdown}${inspectionsHtml}<div id="detail-card" class="mt-3"></div></div>`
     const cardHost = document.getElementById('detail-card')
     const card = window.HF.renderListingContent(null, data, {commentsMode:'all', compact:false, showLinks:false, showDomain:true, skipImages:true, includeCommentEditor:true})
     cardHost.appendChild(card)
@@ -109,7 +134,166 @@ async function loadDetail(){
       })
     }
 
+    // Wire up inspection add-to-plan buttons
+    document.querySelectorAll('.add-inspection-to-plan').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const day = btn.dataset.day
+        const time = btn.dataset.time
+        showAddToPlanModal(data.id, day, time)
+      })
+    })
+
   }catch(e){ content.innerHTML='<div class="text-red-600">Failed to load listing</div>'; console.error(e) }
 }
 
+// Parse time range like "12:15pm - 12:35pm" into separate start/end times
+function parseTimeRange(timeStr) {
+  if (!timeStr) return { open_time: null, close_time: null }
+  
+  const parts = timeStr.split('-').map(p => p.trim())
+  if (parts.length === 2) {
+    // Convert to 24-hour format
+    const open_time = convertTo24Hour(parts[0])
+    const close_time = convertTo24Hour(parts[1])
+    return { open_time, close_time }
+  } else if (parts.length === 1) {
+    // Single time, use it as open time
+    return { open_time: convertTo24Hour(parts[0]), close_time: null }
+  }
+  
+  return { open_time: null, close_time: null }
+}
+
+function convertTo24Hour(timeStr) {
+  if (!timeStr) return null
+  
+  const match = timeStr.match(/(\d+):(\d+)\s*(am|pm)/i)
+  if (!match) return null
+  
+  let hours = parseInt(match[1])
+  const minutes = match[2]
+  const meridiem = match[3].toLowerCase()
+  
+  if (meridiem === 'pm' && hours !== 12) hours += 12
+  if (meridiem === 'am' && hours === 12) hours = 0
+  
+  return `${hours.toString().padStart(2, '0')}:${minutes}`
+}
+
+// Add-to-plan modal functionality
+let pendingInspection = null
+
+async function loadPlansIntoDropdown() {
+  const selectEl = document.getElementById('plan-select-detail')
+  if (!selectEl) return
+  
+  try {
+    const res = await fetch('/api/inspection-plans')
+    const data = await res.json()
+    const plans = data.plans || {}
+    
+    selectEl.innerHTML = '<option value="">-- Select Existing Plan --</option>'
+    
+    Object.values(plans).forEach(plan => {
+      const opt = document.createElement('option')
+      opt.value = plan.id
+      opt.textContent = `${plan.name || 'Unnamed'} (${plan.date || 'No date'}) - ${(plan.stops || []).length} stops`
+      selectEl.appendChild(opt)
+    })
+    
+    document.getElementById('new-plan-date-detail').value = new Date().toISOString().split('T')[0]
+  } catch (e) {
+    console.error('Failed to load plans', e)
+    selectEl.innerHTML = '<option value="">Error loading plans</option>'
+  }
+}
+
+function showAddToPlanModal(listingId, day, time) {
+  pendingInspection = { listingId, day, time }
+  loadPlansIntoDropdown()
+  
+  // Parse times and pre-fill
+  const { open_time, close_time } = parseTimeRange(time)
+  if (open_time) document.getElementById('inspection-open-time').value = open_time
+  if (close_time) document.getElementById('inspection-close-time').value = close_time
+  
+  document.getElementById('inspection-day-display').textContent = `${day} - ${time}`
+  document.getElementById('add-inspection-modal').classList.remove('hidden')
+  document.getElementById('new-plan-name-detail').value = ''
+}
+
+function hideAddToPlanModal() {
+  document.getElementById('add-inspection-modal').classList.add('hidden')
+  pendingInspection = null
+}
+
+document.getElementById('plan-modal-cancel-detail')?.addEventListener('click', hideAddToPlanModal)
+
+document.getElementById('add-inspection-modal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'add-inspection-modal') hideAddToPlanModal()
+})
+
+document.getElementById('plan-modal-add-detail')?.addEventListener('click', async () => {
+  if (!pendingInspection) return
+  
+  const selectedPlanId = document.getElementById('plan-select-detail').value
+  const newPlanName = document.getElementById('new-plan-name-detail').value.trim()
+  const openTime = document.getElementById('inspection-open-time').value
+  const closeTime = document.getElementById('inspection-close-time').value
+  
+  try {
+    const res = await fetch('/api/inspection-plans')
+    const data = await res.json()
+    const plans = data.plans || {}
+    
+    let planToUpdate = null
+    
+    if (selectedPlanId && plans[selectedPlanId]) {
+      // Add to existing plan
+      planToUpdate = plans[selectedPlanId]
+      if (planToUpdate.stops.find(s => s.listing_id === pendingInspection.listingId)) {
+        alert('This listing is already in the selected plan')
+        return
+      }
+      planToUpdate.stops.push({ 
+        listing_id: pendingInspection.listingId,
+        open_time: openTime || null,
+        close_time: closeTime || null
+      })
+      planToUpdate.updated_at = new Date().toISOString()
+    } else if (newPlanName) {
+      // Create new plan
+      const newPlanDate = document.getElementById('new-plan-date-detail').value
+      const planId = 'plan_' + Date.now()
+      planToUpdate = {
+        id: planId,
+        name: newPlanName,
+        date: newPlanDate,
+        mode: 'driving',
+        stops: [{ 
+          listing_id: pendingInspection.listingId,
+          open_time: openTime || null,
+          close_time: closeTime || null
+        }],
+        updated_at: new Date().toISOString()
+      }
+    } else {
+      alert('Please select an existing plan or enter a name for a new plan')
+      return
+    }
+    
+    await fetch('/api/inspection-plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(planToUpdate)
+    })
+    
+    alert(`Added to plan: ${planToUpdate.name}`)
+    hideAddToPlanModal()
+  } catch (e) {
+    alert('Error adding to plan: ' + e.message)
+  }
+})
+
+HF.renderNavbar('Listing Details')
 loadDetail()

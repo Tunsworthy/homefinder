@@ -1,5 +1,5 @@
 (() => {
-  let currentPlan = { id: null, name: '', date: null, start_time: '', end_time: '', mode: 'driving', stops: [] }
+  let currentPlan = { id: null, name: '', date: null, mode: 'driving', stops: [] }
   let allListings = []
   let draggedIndex = null
 
@@ -155,10 +155,9 @@
         const card = document.createElement('div')
         card.className = 'border rounded p-3 cursor-pointer hover:bg-gray-50'
         const stopCount = (plan.stops || []).length
-        const timeRange = plan.start_time && plan.end_time ? `${plan.start_time}-${plan.end_time}` : ''
         card.innerHTML = `
           <div class="font-medium text-sm">${plan.name || 'Unnamed Plan'}</div>
-          <div class="text-xs text-gray-600">${plan.date || 'No date'} ${timeRange}</div>
+          <div class="text-xs text-gray-600">${plan.date || 'No date'}</div>
           <div class="text-xs text-gray-500">${plan.mode} • ${stopCount} stop${stopCount!==1?'s':''}</div>
           <div class="text-xs text-gray-500 mt-1">${plan.stops?.slice(0,2).map(s => {
             const l = allListings.find(x => x.id === s.listing_id)
@@ -178,8 +177,6 @@
     currentPlan = JSON.parse(JSON.stringify(plan))
     document.getElementById('plan-name').value = currentPlan.name || ''
     document.getElementById('plan-date').value = currentPlan.date || ''
-    document.getElementById('plan-start-time').value = currentPlan.start_time || ''
-    document.getElementById('plan-end-time').value = currentPlan.end_time || ''
     document.getElementById('plan-mode').value = currentPlan.mode || 'driving'
     renderStops()
   }
@@ -189,15 +186,11 @@
       id: null, 
       name: '', 
       date: new Date().toISOString().split('T')[0], 
-      start_time: '09:00',
-      end_time: '17:00',
       mode: 'driving', 
       stops: [] 
     }
     document.getElementById('plan-name').value = ''
     document.getElementById('plan-date').value = currentPlan.date
-    document.getElementById('plan-start-time').value = currentPlan.start_time
-    document.getElementById('plan-end-time').value = currentPlan.end_time
     document.getElementById('plan-mode').value = 'driving'
     renderStops()
   }
@@ -205,8 +198,6 @@
   document.getElementById('save-plan').onclick = async () => {
     currentPlan.name = document.getElementById('plan-name').value || 'Unnamed Plan'
     currentPlan.date = document.getElementById('plan-date').value || null
-    currentPlan.start_time = document.getElementById('plan-start-time').value || null
-    currentPlan.end_time = document.getElementById('plan-end-time').value || null
     currentPlan.mode = document.getElementById('plan-mode').value || 'driving'
     
     if (!currentPlan.name.trim()) {
@@ -268,8 +259,6 @@
           currentPlan = existing[0]
           document.getElementById('plan-name').value = currentPlan.name || ''
           document.getElementById('plan-date').value = currentPlan.date || ''
-          document.getElementById('plan-start-time').value = currentPlan.start_time || ''
-          document.getElementById('plan-end-time').value = currentPlan.end_time || ''
           document.getElementById('plan-mode').value = currentPlan.mode || 'driving'
         }
       }

@@ -483,8 +483,6 @@ def api_inspection_plans():
         'id': plan_id,
         'name': payload.get('name', 'Unnamed Plan'),
         'date': payload.get('date'),
-        'start_time': payload.get('start_time'),
-        'end_time': payload.get('end_time'),
         'mode': payload.get('mode', 'driving'),
         'stops': payload.get('stops', []),
         'updated_at': datetime.utcnow().isoformat(),

@@ -386,69 +386,72 @@ async function loadPlansIntoDropdown() {
   }
 }
 
-function showAddToPlanModal(listingId) {
-  pendingListingId = listingId
-  loadPlansIntoDropdown()
-  document.getElementById('add-to-plan-modal').classList.remove('hidden')
-  document.getElementById('new-plan-name').value = ''
+async function addListingToPlan(listingId) {
+  // Now handled via HF.showAddToPlanModal
 }
 
-function hideAddToPlanModal() {
+// Modal handlers - Update to use HF namespace
+document.getElementById('plan-modal-cancel')?.addEventListener('click', () => {
   document.getElementById('add-to-plan-modal').classList.add('hidden')
   pendingListingId = null
-}
-
-async function addListingToPlan(listingId) {
-  showAddToPlanModal(listingId)
-}
-
-// Modal handlers
-document.getElementById('plan-modal-cancel')?.addEventListener('click', hideAddToPlanModal)
+})
 
 document.getElementById('add-to-plan-modal')?.addEventListener('click', (e) => {
-  if (e.target.id === 'add-to-plan-modal') hideAddToPlanModal()
+  if (e.target.id === 'add-to-plan-modal') {
+    document.getElementById('add-to-plan-modal').classList.add('hidden')
+    pendingListingId = null
+  }
 })
 
 document.getElementById('plan-modal-add')?.addEventListener('click', async () => {
-  if (!pendingListingId) return
+  if (!HF.pendingInspection) return
   
   const selectedPlanId = document.getElementById('plan-select').value
   const newPlanName = document.getElementById('new-plan-name').value.trim()
+  const openTime = document.getElementById('inspection-open-time').value
+  const closeTime = document.getElementById('inspection-close-time').value
   
   try {
-    const res = await fetch('/api/inspection-plans')
-    const data = await res.json()
-    const plans = data.plans || {}
+    let targetPlanId = selectedPlanId
     
-    let planToUpdate = null
-    
-    if (selectedPlanId && plans[selectedPlanId]) {
-      // Add to existing plan
-      planToUpdate = plans[selectedPlanId]
-      if (planToUpdate.stops.find(s => s.listing_id === pendingListingId)) {
-        alert('This listing is already in the selected plan')
-        return
-      }
-      planToUpdate.stops.push({ listing_id: pendingListingId })
-      planToUpdate.updated_at = new Date().toISOString()
-    } else if (newPlanName) {
+    if (!selectedPlanId && newPlanName) {
       // Create new plan
       const newPlanDate = document.getElementById('new-plan-date').value
-      const planId = 'plan_' + Date.now()
-      planToUpdate = {
-        id: planId,
-        name: newPlanName,
-        date: newPlanDate,
-        start_time: '09:00',
-        end_time: '17:00',
-        mode: 'driving',
-        stops: [{ listing_id: pendingListingId }],
-        updated_at: new Date().toISOString()
-      }
-    } else {
-      alert('Please select an existing plan or enter a name for a new plan')
+      const createRes = await fetch('/api/inspection-plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newPlanName,
+          date: newPlanDate,
+          mode: 'driving',
+          stops: []
+        })
+      })
+      const createData = await createRes.json()
+      targetPlanId = createData.plan.id
+    }
+    
+    if (!targetPlanId) {
+      alert('Please select a plan or create a new one')
       return
     }
+    
+    const res = await fetch('/api/inspection-plans')
+    const data = await res.json()
+    const planToUpdate = data.plans[targetPlanId]
+    
+    if (!planToUpdate) {
+      alert('Plan not found')
+      return
+    }
+    
+    planToUpdate.stops = planToUpdate.stops || []
+    planToUpdate.stops.push({
+      listing_id: HF.pendingInspection.listingId,
+      open_time: openTime,
+      close_time: closeTime,
+      override_minutes: null
+    })
     
     await fetch('/api/inspection-plans', {
       method: 'POST',
@@ -457,7 +460,7 @@ document.getElementById('plan-modal-add')?.addEventListener('click', async () =>
     })
     
     alert(`Added to plan: ${planToUpdate.name}`)
-    hideAddToPlanModal()
+    HF.hideAddToPlanModal()
   } catch (e) {
     alert('Error adding to plan: ' + e.message)
   }
@@ -483,14 +486,9 @@ function renderList(listings) {
     const card = window.HF.renderListingContent(null, item, {commentsMode:'top3', compact:true, showLinks:true})
     el.appendChild(card)
     
-    // Add "Add to Plan" button
-    const planBtn = document.createElement('button')
-    planBtn.className = 'mt-2 w-full px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700'
-    planBtn.textContent = '+ Add to Inspection Plan'
-    planBtn.addEventListener('click', () => addListingToPlan(item.id, item.address))
-    el.appendChild(planBtn)
-    
     container.appendChild(el)
+    window.HF.setupCarousels()
+    window.HF.wireAddToPlanButtons()
     const cm = el.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)
     window.HF.initVoteButtons(el, item)
     // Attach image click handlers for popup zoom
@@ -514,12 +512,8 @@ function buildInfoNode(item) {
   const card = window.HF.renderListingContent(null, item, {commentsMode:'latest', compact:true, showLinks:true})
   wrapper.appendChild(card)
   
-  // Add "Add to Plan" button
-  const planBtn = document.createElement('button')
-  planBtn.className = 'mt-2 w-full px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700'
-  planBtn.textContent = '+ Add to Inspection Plan'
-  planBtn.addEventListener('click', () => addListingToPlan(item.id, item.address))
-  wrapper.appendChild(planBtn)
+  window.HF.setupCarousels()
+  window.HF.wireAddToPlanButtons()
   
   const cm = wrapper.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)
   window.HF.initVoteButtons(wrapper, item)

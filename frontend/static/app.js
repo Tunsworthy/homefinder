@@ -147,6 +147,7 @@ function renderItem(item) {
   wrapper.appendChild(card)
   container.appendChild(wrapper)
   window.HF.setupCarousels()
+  window.HF.wireAddToPlanButtons()
   const commutesContainer = wrapper.querySelector('.commutes-container')
   if (commutesContainer) window.HF.loadAndRenderCommutes(item.id, commutesContainer, item)
   window.HF.initVoteButtons(wrapper, item)
@@ -943,3 +944,64 @@ if (popupImage) {
 
 if (popupZoomIn) popupZoomIn.addEventListener('click', (e) => { e.stopPropagation(); popupScale = Math.min(3, popupScale + 0.25); if (popupImage) popupImage.style.transform = `scale(${popupScale})`; });
 if (popupZoomOut) popupZoomOut.addEventListener('click', (e) => { e.stopPropagation(); popupScale = Math.max(1, popupScale - 0.25); if (popupImage) popupImage.style.transform = `scale(${popupScale})`; });
+
+// Modal handlers for add to plan
+document.getElementById('plan-modal-cancel')?.addEventListener('click', () => HF.hideAddToPlanModal())
+document.getElementById('plan-modal-add')?.addEventListener('click', async () => {
+  if (!HF.pendingInspection) return
+  const planId = document.getElementById('plan-select').value
+  const newPlanName = document.getElementById('new-plan-name').value
+  const newPlanDate = document.getElementById('new-plan-date').value
+  const openTime = document.getElementById('inspection-open-time').value
+  const closeTime = document.getElementById('inspection-close-time').value
+  
+  try {
+    let targetPlanId = planId
+    if (!planId && newPlanName.trim()) {
+      const createRes = await fetch('/api/inspection-plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newPlanName,
+          date: newPlanDate,
+          mode: 'driving',
+          stops: []
+        })
+      })
+      const createData = await createRes.json()
+      targetPlanId = createData.plan.id
+    }
+    
+    if (!targetPlanId) {
+      alert('Please select a plan or create a new one')
+      return
+    }
+    
+    const plansRes = await fetch('/api/inspection-plans')
+    const plansData = await plansRes.json()
+    const planToUpdate = plansData.plans[targetPlanId]
+    if (!planToUpdate) {
+      alert('Plan not found')
+      return
+    }
+    
+    planToUpdate.stops = planToUpdate.stops || []
+    planToUpdate.stops.push({
+      listing_id: HF.pendingInspection.listingId,
+      open_time: openTime,
+      close_time: closeTime,
+      override_minutes: null
+    })
+    
+    await fetch('/api/inspection-plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(planToUpdate)
+    })
+    
+    alert(`Added to plan: ${planToUpdate.name}`)
+    HF.hideAddToPlanModal()
+  } catch (e) {
+    alert('Error adding to plan: ' + e.message)
+  }
+})

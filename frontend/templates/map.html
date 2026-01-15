@@ -102,7 +102,23 @@
     <!-- Add to Plan Modal -->
     <div id="add-to-plan-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
       <div class="bg-white rounded shadow p-6 max-w-md w-full mx-4">
-        <h3 class="text-lg font-semibold mb-4">Add to Inspection Plan</h3>
+        <h3 class="text-lg font-semibold mb-2">Add Inspection to Plan</h3>
+        <div class="mb-4 p-2 bg-blue-50 rounded text-sm">
+          <div id="inspection-day-display" class="font-medium"></div>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">Inspection Times</label>
+          <div class="flex gap-2">
+            <div class="flex-1">
+              <label class="block text-xs text-gray-600 mb-1">Open</label>
+              <input id="inspection-open-time" type="time" class="w-full border rounded px-2 py-1" />
+            </div>
+            <div class="flex-1">
+              <label class="block text-xs text-gray-600 mb-1">Close</label>
+              <input id="inspection-close-time" type="time" class="w-full border rounded px-2 py-1" />
+            </div>
+          </div>
+        </div>
         <div id="plan-modal-content" class="mb-4">
           <div class="mb-3">
             <label class="block text-sm font-medium mb-2">Select Plan</label>

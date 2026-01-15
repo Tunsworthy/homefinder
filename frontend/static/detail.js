@@ -237,36 +237,36 @@ function hideAddToPlanModal() {
   pendingInspection = null
 }
 
-document.getElementById('plan-modal-cancel-detail')?.addEventListener('click', hideAddToPlanModal)
+document.getElementById('plan-modal-cancel-detail')?.addEventListener('click', () => HF.hideAddToPlanModal())
 
 document.getElementById('add-inspection-modal')?.addEventListener('click', (e) => {
-  if (e.target.id === 'add-inspection-modal') hideAddToPlanModal()
+  if (e.target.id === 'add-inspection-modal') HF.hideAddToPlanModal()
 })
 
 document.getElementById('plan-modal-add-detail')?.addEventListener('click', async () => {
-  if (!pendingInspection) return
-  
+  if (!HF.pendingInspection) return
+
   const selectedPlanId = document.getElementById('plan-select-detail').value
   const newPlanName = document.getElementById('new-plan-name-detail').value.trim()
   const openTime = document.getElementById('inspection-open-time').value
   const closeTime = document.getElementById('inspection-close-time').value
-  
+
   try {
     const res = await fetch('/api/inspection-plans')
     const data = await res.json()
     const plans = data.plans || {}
-    
+
     let planToUpdate = null
-    
+
     if (selectedPlanId && plans[selectedPlanId]) {
       // Add to existing plan
       planToUpdate = plans[selectedPlanId]
-      if (planToUpdate.stops.find(s => s.listing_id === pendingInspection.listingId)) {
+      if (planToUpdate.stops.find(s => s.listing_id === HF.pendingInspection.listingId)) {
         alert('This listing is already in the selected plan')
         return
       }
       planToUpdate.stops.push({ 
-        listing_id: pendingInspection.listingId,
+        listing_id: HF.pendingInspection.listingId,
         open_time: openTime || null,
         close_time: closeTime || null
       })
@@ -281,7 +281,7 @@ document.getElementById('plan-modal-add-detail')?.addEventListener('click', asyn
         date: newPlanDate,
         mode: 'driving',
         stops: [{ 
-          listing_id: pendingInspection.listingId,
+          listing_id: HF.pendingInspection.listingId,
           open_time: openTime || null,
           close_time: closeTime || null
         }],
@@ -291,15 +291,15 @@ document.getElementById('plan-modal-add-detail')?.addEventListener('click', asyn
       alert('Please select an existing plan or enter a name for a new plan')
       return
     }
-    
+
     await fetch('/api/inspection-plans', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(planToUpdate)
     })
-    
+
     alert(`Added to plan: ${planToUpdate.name}`)
-    hideAddToPlanModal()
+    HF.hideAddToPlanModal()
   } catch (e) {
     alert('Error adding to plan: ' + e.message)
   }

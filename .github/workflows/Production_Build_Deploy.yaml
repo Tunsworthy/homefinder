@@ -71,6 +71,6 @@ jobs:
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.DEPLOY_TOKEN }}
-          repository: Tunsworthy/pi-dockercompose
+          repository: Tunsworthy/homeops
           event-type: deploy-container
           client-payload: '{"branch": "housefindertest", "folder": "housefinder"}'

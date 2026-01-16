@@ -111,6 +111,7 @@ async function loadDetail(){
     const comm = card.querySelector('.commutes-container'); if (comm) window.HF.loadAndRenderCommutes(listingId, comm, data)
     window.HF.initVoteButtons(card, data)
     window.HF.initCommentEditor(card, listingId)
+    window.HF.wireAddToPlanButtons()
 
     // Wire up status selector
     const statusSelect = document.getElementById('workflow-status-select')

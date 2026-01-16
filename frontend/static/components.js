@@ -56,15 +56,29 @@
 
   // Navbar
   HF.renderNavbar = function(pageTitle){ 
-    const nav = document.getElementById('navbar') || document.createElement('nav')
+    const existingNav = document.getElementById('navbar')
+    const nav = existingNav || document.createElement('nav')
     nav.id = 'navbar'
     nav.className = 'bg-white shadow sticky top-0 z-40'
     nav.innerHTML = `<div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4"><div class="relative"><button id="nav-menu-toggle" class="p-2 hover:bg-gray-100 rounded" aria-label="Menu"><i class="fa-solid fa-bars text-lg"></i></button><div id="nav-menu" class="hidden absolute left-0 mt-2 w-48 bg-white border rounded shadow z-50"><a href="/" class="block px-4 py-2 hover:bg-gray-100 text-sm">List View</a><a href="/map" class="block px-4 py-2 hover:bg-gray-100 text-sm">Map View</a><a href="/plan" class="block px-4 py-2 hover:bg-gray-100 text-sm">Inspection Planner</a></div></div><h1 class="text-xl font-semibold">${HF.escapeHtml(pageTitle||'Housefinder')}</h1></div>`
-    if (!document.getElementById('navbar')) document.body.insertBefore(nav, document.body.firstChild)
+    if (!existingNav) document.body.insertBefore(nav, document.body.firstChild)
+    
+    // Wire up menu toggle (use event delegation to avoid multiple listeners)
     const toggle = document.getElementById('nav-menu-toggle')
     const menu = document.getElementById('nav-menu')
-    if (toggle && menu) {
-      toggle.addEventListener('click', () => menu.classList.toggle('hidden'))
+    if (toggle && menu && !toggle.dataset.wired) {
+      toggle.dataset.wired = 'true'
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation()
+        menu.classList.toggle('hidden')
+      })
+      // Close menu when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!menu.contains(e.target) && !toggle.contains(e.target)) {
+          menu.classList.add('hidden')
+        }
+      })
+      // Close menu when clicking links
       document.querySelectorAll('#nav-menu a').forEach(link => {
         link.addEventListener('click', () => menu.classList.add('hidden'))
       })

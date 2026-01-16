@@ -87,8 +87,70 @@
   HF.pendingInspection = null
   HF.showAddToPlanModal = function(listingId, day, time){ HF.pendingInspection = {listingId, day, time}; const timeRange=HF.parseTimeRange(time); let openTime='', closeTime=''; if(timeRange){ openTime=HF.convertTo24Hour(timeRange.start); closeTime=timeRange.end?HF.convertTo24Hour(timeRange.end):'' } const displayEl=document.getElementById('inspection-day-display'); if(displayEl) displayEl.textContent=`${day} ${time}`; const openEl=document.getElementById('inspection-open-time'); if(openEl) openEl.value=openTime; const closeEl=document.getElementById('inspection-close-time'); if(closeEl) closeEl.value=closeTime; document.getElementById('add-inspection-modal').classList.remove('hidden'); HF.loadPlansIntoDropdown() }
   HF.hideAddToPlanModal = function(){ document.getElementById('add-inspection-modal').classList.add('hidden'); HF.pendingInspection=null }
-  HF.loadPlansIntoDropdown = async function(){ try{ const res=await fetch('/api/inspection-plans'); const j=await res.json(); const select=document.getElementById('plan-select') || document.getElementById('plan-select-detail'); if(!select) return; select.innerHTML='<option value="">Select existing plan...</option>'; if(j.ok&&j.plans){ Object.values(j.plans).forEach(p=>{ select.innerHTML+=`<option value="${p.id}">${HF.escapeHtml(p.name)} (${p.date||'No date'})</option>` }) } }catch(e){ console.error('load plans failed', e) } }
-  HF.wireAddToPlanButtons = function(){ document.querySelectorAll('.add-to-plan-btn').forEach(btn=>{ if(btn.dataset.wired==='true') return; btn.dataset.wired='true'; btn.addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); const listingId=btn.dataset.listingId; const day=btn.dataset.day; const time=btn.dataset.time; HF.showAddToPlanModal(listingId, day, time) }) }) }
+  HF.loadPlansIntoDropdown = async function(){ try{ const res=await fetch('/api/inspection-plans'); const j=await res.json(); const select=document.getElementById('plan-select') || document.getElementById('plan-select-detail'); if(!select) return; select.innerHTML='<option value="">Select existing plan...</option>'; if(j.ok&&j.plans){ Object.values(j.plans).forEach(p=>{ select.innerHTML+=`<option value="${p.id}">${HF.escapeHtml(p.name)} (${p.date||'No date'})</option>` }) } }catch(e){ console.error('load plans failed', e) } };
+  HF.wireAddToPlanButtons = function(){ document.querySelectorAll('.add-to-plan-btn').forEach(btn=>{ if(btn.dataset.wired==='true') return; btn.dataset.wired='true'; btn.addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); const listingId=btn.dataset.listingId; const day=btn.dataset.day; const time=btn.dataset.time; HF.showAddToPlanModal(listingId, day, time) }) }) };
+
+  // Modal actions (list/map views)
+  HF.initPlanModal = function(){
+    const addBtn = document.getElementById('plan-modal-add')
+    if (addBtn) {
+      addBtn.addEventListener('click', async () => {
+        if (!HF.pendingInspection) return
+        try {
+          const res = await fetch('/api/inspection-plans')
+          const data = await res.json()
+          const plans = data.plans || {}
+
+          const select = document.getElementById('plan-select') || document.getElementById('plan-select-detail')
+          const selectedPlanId = select ? select.value : ''
+          const newPlanNameEl = document.getElementById('new-plan-name') || document.getElementById('new-plan-name-detail')
+          const newPlanName = newPlanNameEl ? newPlanNameEl.value.trim() : ''
+          const newPlanDateEl = document.getElementById('new-plan-date') || document.getElementById('new-plan-date-detail')
+          const newPlanDate = newPlanDateEl ? newPlanDateEl.value : ''
+          const openTimeEl = document.getElementById('inspection-open-time')
+          const closeTimeEl = document.getElementById('inspection-close-time')
+          const openTime = openTimeEl ? openTimeEl.value : ''
+          const closeTime = closeTimeEl ? closeTimeEl.value : ''
+
+          let planToUpdate = null
+          if (selectedPlanId && plans[selectedPlanId]) {
+            planToUpdate = plans[selectedPlanId]
+            if (planToUpdate.stops.find(s => s.listing_id === HF.pendingInspection.listingId)) {
+              alert('This listing is already in the selected plan')
+              return
+            }
+            planToUpdate.stops.push({ listing_id: HF.pendingInspection.listingId, open_time: openTime || null, close_time: closeTime || null })
+            planToUpdate.updated_at = new Date().toISOString()
+          } else if (newPlanName) {
+            const planId = 'plan_' + Date.now()
+            planToUpdate = { id: planId, name: newPlanName, date: newPlanDate, mode: 'driving', stops: [{ listing_id: HF.pendingInspection.listingId, open_time: openTime || null, close_time: closeTime || null }], updated_at: new Date().toISOString() }
+          } else {
+            alert('Please select an existing plan or enter a name for a new plan')
+            return
+          }
+
+          await fetch('/api/inspection-plans', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(planToUpdate) })
+          alert(`Added to plan: ${planToUpdate.name}`)
+          HF.hideAddToPlanModal()
+        } catch (e) {
+          alert('Error adding to plan: ' + e.message)
+        }
+      })
+    }
+
+    const cancelBtn = document.getElementById('plan-modal-cancel') || document.getElementById('plan-modal-cancel-detail')
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => HF.hideAddToPlanModal())
+    }
+
+    const modalBackdrop = document.getElementById('add-inspection-modal')
+    if (modalBackdrop) {
+      modalBackdrop.addEventListener('click', (e) => { if (e.target.id === 'add-inspection-modal') HF.hideAddToPlanModal() })
+    }
+  };
+
+  // Initialize modal wiring as soon as script loads
+  HF.initPlanModal()
 
   // Modal actions (list/map views)
   (function(){

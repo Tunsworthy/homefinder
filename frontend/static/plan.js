@@ -225,6 +225,34 @@
     }
   }
 
+  document.getElementById('delete-plan').onclick = async () => {
+    if (!currentPlan.id) {
+      alert('No plan to delete')
+      return
+    }
+    
+    if (!confirm(`Delete plan "${currentPlan.name}"?`)) {
+      return
+    }
+    
+    try {
+      const res = await fetch(`/api/inspection-plans/${currentPlan.id}`, {
+        method: 'DELETE'
+      })
+      const j = await res.json()
+      if (j.ok) {
+        document.getElementById('save-status').textContent = 'Deleted'
+        setTimeout(() => document.getElementById('save-status').textContent = '', 1500)
+        renderPlansList()
+        createNewPlan()
+      } else {
+        alert('Delete failed')
+      }
+    } catch (e) {
+      alert('Delete failed')
+    }
+  }
+
   document.getElementById('calc-route').onclick = async () => {
     if (!currentPlan.id) {
       // save first to get an id

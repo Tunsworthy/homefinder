@@ -494,6 +494,17 @@ def api_inspection_plans():
     return jsonify({'ok': True, 'plan': plan})
 
 
+@app.route('/api/inspection-plans/<plan_id>', methods=['DELETE'])
+def api_inspection_plan_delete(plan_id):
+    plans = load_plans()
+    if plan_id not in plans:
+        return jsonify({'ok': False, 'error': 'plan not found'}), 404
+    
+    del plans[plan_id]
+    save_plans(plans)
+    return jsonify({'ok': True})
+
+
 @app.route('/api/inspection-plans/<plan_id>/route')
 def api_inspection_plan_route(plan_id):
     plans = load_plans()

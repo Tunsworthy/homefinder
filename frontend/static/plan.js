@@ -38,7 +38,7 @@
           <div class="flex gap-2 mt-1">
             <input class="border rounded px-2 py-1 text-xs stop-open-time" data-idx="${idx}" type="time" value="${s.open_time||''}" placeholder="Open" title="Property open time">
             <input class="border rounded px-2 py-1 text-xs stop-close-time" data-idx="${idx}" type="time" value="${s.close_time||''}" placeholder="Close" title="Property close time">
-            <input class="border rounded px-2 py-1 w-20 text-xs stop-override" data-idx="${idx}" type="number" min="0" value="${s.override_minutes??''}" placeholder="Travel min">
+            ${listing ? `<a href="/listing/${listing.id}" target="_blank" class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">📋 Details</a>` : ''}
           </div>
         </div>
         <button class="px-2 py-1 text-sm bg-red-100 text-red-700 rounded rm-stop" data-idx="${idx}">✕</button>
@@ -82,10 +82,14 @@
         currentPlan.stops[Number(inp.dataset.idx)].close_time = inp.value || null
       }
     })
-    document.querySelectorAll('.stop-override').forEach(inp => {
+    document.querySelectorAll('.stop-open-time').forEach(inp => {
       inp.onchange = () => {
-        const v = inp.value.trim()
-        currentPlan.stops[Number(inp.dataset.idx)].override_minutes = v === '' ? null : Number(v)
+        currentPlan.stops[Number(inp.dataset.idx)].open_time = inp.value || null
+      }
+    })
+    document.querySelectorAll('.stop-close-time').forEach(inp => {
+      inp.onchange = () => {
+        currentPlan.stops[Number(inp.dataset.idx)].close_time = inp.value || null
       }
     })
     document.querySelectorAll('.rm-stop').forEach(btn => {

@@ -3,9 +3,38 @@
   // Helpers
   HF.escapeHtml = function(s){ if (s===null || typeof s==='undefined') return ''; const str=String(s); return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
   HF.stripHtml = function(s){ if (s===null || typeof s==='undefined') return ''; return String(s).replace(/<[^>]*>/g,'') }
-  HF.parseTimeRange = function(timeStr){ if(!timeStr) return null; const parts = timeStr.split('-').map(s=>s.trim()); return parts.length===2 ? {start:parts[0], end:parts[1]} : {start:timeStr, end:null} }
+  HF.parseTimeRange = function(timeStr){
+    if(!timeStr) return null;
+    const normalized = timeStr.replace(/[\u2013\u2014]/g,'-'); // replace en/em dash
+    const parts = normalized.split('-').map(s=>s.trim());
+    return parts.length===2 ? {start:parts[0], end:parts[1]} : {start:normalized, end:null}
+  }
   HF.convertTo24Hour = function(time12h){ if(!time12h) return ''; const match = time12h.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i); if(!match) return time12h; let [_, hours, minutes, period] = match; hours = parseInt(hours); if(period.toLowerCase()==='pm' && hours!==12) hours+=12; if(period.toLowerCase()==='am' && hours===12) hours=0; return `${String(hours).padStart(2,'0')}:${minutes}` }
-  HF.getNextInspection = function(inspections){ if(!inspections||!Array.isArray(inspections)||inspections.length===0) return null; const now = new Date(); const dayMap={'monday':1,'tuesday':2,'wednesday':3,'thursday':4,'friday':5,'saturday':6,'sunday':0}; for(const insp of inspections){ const dayNum=dayMap[insp.day?.toLowerCase()]; if(dayNum===undefined) continue; const timeRange=HF.parseTimeRange(insp.time); if(!timeRange) continue; let nextDate=new Date(now); const currentDay=now.getDay(); const daysUntil=(dayNum-currentDay+7)%7; nextDate.setDate(now.getDate()+(daysUntil===0?7:daysUntil)); const time24=HF.convertTo24Hour(timeRange.start); const [h,m]=time24.split(':'); nextDate.setHours(parseInt(h),parseInt(m),0,0); if(nextDate>now) return {day:insp.day, time:insp.time, date:nextDate} } return null }
+  HF.getNextInspection = function(inspections){
+    if(!inspections||!Array.isArray(inspections)||inspections.length===0) return null;
+    const now = new Date();
+    const dayMap={'monday':1,'tuesday':2,'wednesday':3,'thursday':4,'friday':5,'saturday':6,'sunday':0};
+    for(const insp of inspections){
+      const dayStr = (insp.day||'').toLowerCase();
+      const dayMatch = dayStr.match(/monday|tuesday|wednesday|thursday|friday|saturday|sunday/);
+      const dayKey = dayMatch ? dayMatch[0] : null;
+      const dayNum=dayKey? dayMap[dayKey] : undefined;
+      if(dayNum===undefined) continue;
+      const timeRange=HF.parseTimeRange(insp.time);
+      if(!timeRange) continue;
+      let nextDate=new Date(now);
+      const currentDay=now.getDay();
+      const daysUntil=(dayNum-currentDay+7)%7;
+      nextDate.setDate(now.getDate()+(daysUntil===0?7:daysUntil));
+      const time24=HF.convertTo24Hour(timeRange.start);
+      const parts = time24.split(':');
+      if(parts.length<2) continue;
+      const [h,m]=parts;
+      nextDate.setHours(parseInt(h,10),parseInt(m,10),0,0);
+      if(nextDate>now) return {day:insp.day, time:insp.time, date:nextDate}
+    }
+    return null
+  }
   HF.setToggleVisual = function(btn, on, color){ if(!btn) return; btn.classList.remove('bg-green-600','bg-red-600','bg-gray-200','bg-gray-100','text-white','text-gray-800'); if(on){ let c='bg-green-600'; if(color==='blue') c='bg-blue-600'; if(color==='red') c='bg-red-600'; btn.classList.add(c,'text-white') } else { btn.classList.add('bg-gray-200','text-gray-800') } }
 
   // Tooltip

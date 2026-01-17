@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 DATA_DIR = os.environ.get("DATA_DIR", ".")
 LISTING_IDS_FILE = os.path.join(DATA_DIR, "listing_ids.json")
+VOTES_FILE = os.path.join(DATA_DIR, "votes.json")
 OUTPUT_FOLDER = os.path.join(DATA_DIR, "listings")
 SUMMARY_CSV = os.path.join(DATA_DIR, "summary.csv")
 SUBURBS_FILE = os.path.join(DATA_DIR, "suburbs.json")
@@ -29,6 +30,25 @@ BASE_URL = "https://www.domain.com.au/"
 def load_listing_ids():
     with open(LISTING_IDS_FILE, "r") as f:
         return json.load(f)
+
+
+def load_votes():
+    """Load votes.json to check for rejected listings."""
+    if os.path.exists(VOTES_FILE):
+        try:
+            with open(VOTES_FILE, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Error loading votes: {e}")
+            return {}
+    return {}
+
+
+def is_rejected(listing_id: str, votes: dict) -> bool:
+    """Check if a listing is marked as rejected."""
+    if listing_id in votes:
+        return votes[listing_id].get('workflow_status') == 'rejected'
+    return False
 
 
 def load_suburbs():
@@ -330,6 +350,11 @@ def main():
     
     logger.info(f"Step 1 identified {len(new_ids_from_step1)} new listings")
     
+    # Load votes to check for rejected listings
+    votes = load_votes()
+    rejected_count = sum(1 for v in votes.values() if v.get('workflow_status') == 'rejected')
+    logger.info(f"Loaded votes with {rejected_count} rejected listings")
+    
     ids = load_listing_ids()
     print(f"Found {len(ids)} IDs — scraping each listing…")
 
@@ -340,6 +365,11 @@ def main():
     # Sort: new listings first, then ones that need updating
     listings_to_process = []
     for listing_id in ids:
+        # Skip rejected listings
+        if is_rejected(listing_id, votes):
+            logger.info(f"⏭ Skipping rejected listing {listing_id}")
+            continue
+        
         if listing_id in new_ids_from_step1:
             listings_to_process.append((0, listing_id))  # Priority 0 = new
         elif needs_update(listing_id):

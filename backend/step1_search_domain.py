@@ -8,6 +8,25 @@ import os
 
 from step1_summary import write_step1_summary
 
+# For loading votes to check rejected status
+def load_votes():
+    """Load votes.json to check for rejected listings."""
+    votes_file = os.path.join(os.environ.get("DATA_DIR", "."), "votes.json")
+    if os.path.exists(votes_file):
+        try:
+            with open(votes_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"⚠ Error loading votes: {e}")
+            return {}
+    return {}
+
+def is_rejected(listing_id: str, votes: dict) -> bool:
+    """Check if a listing is marked as rejected."""
+    if listing_id in votes:
+        return votes[listing_id].get('workflow_status') == 'rejected'
+    return False
+
 BASE_URL = (
     "https://www.domain.com.au/sale/?suburb="
     "cheltenham-nsw-2119,"
@@ -169,6 +188,11 @@ def fetch_all_listing_ids():
 if __name__ == "__main__":
     print("Fetching latest listings:", TODAY)
 
+    # Load votes to check for rejected listings
+    votes = load_votes()
+    rejected_count = sum(1 for v in votes.values() if v.get('workflow_status') == 'rejected')
+    print(f"Loaded votes with {rejected_count} rejected listings")
+
     existing = load_saved_ids()
     current_ids = fetch_all_listing_ids()
 
@@ -179,6 +203,11 @@ if __name__ == "__main__":
 
     # Process current IDs
     for listing_id in current_ids:
+        # Skip rejected listings
+        if is_rejected(listing_id, votes):
+            print(f"⏭ Skipping rejected listing {listing_id}")
+            continue
+        
         if listing_id in existing:
             existing[listing_id]["status"] = "active"
             existing[listing_id]["updated_date"] = TODAY

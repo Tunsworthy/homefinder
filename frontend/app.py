@@ -262,6 +262,11 @@ def api_listings():
     sold_count = sum(1 for s in summaries if str(s.get('status')).lower() == 'sold')
     available_count = total - sold_count
 
+    # Filter out rejected listings by default (unless explicitly included)
+    include_rejected = request.args.get('include_rejected', 'false').lower() == 'true'
+    if not include_rejected:
+        summaries = [s for s in summaries if s.get('workflow_status') != 'rejected']
+
     # apply status filter
     if status_filter == 'sold':
         summaries = [s for s in summaries if str(s.get('status')).lower() == 'sold']

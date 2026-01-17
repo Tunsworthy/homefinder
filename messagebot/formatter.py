@@ -66,6 +66,48 @@ def format_heartbeat(payload: Dict[str, Any]) -> str:
     return f"💓 Heartbeat received: {heartbeat_type}"
 
 
+def format_rejection_summary(payload: Dict[str, Any]) -> str:
+    """Format a rejection scanner summary message"""
+    summary = payload.get("summary", {})
+    rejected_ids = payload.get("rejected_ids", [])
+    reviewed_ids = payload.get("reviewed_ids", [])
+    timestamp = payload.get("timestamp", "unknown")
+    
+    total_voted = summary.get("total_voted", 0)
+    marked_rejected = summary.get("marked_rejected", 0)
+    marked_reviewed = summary.get("marked_reviewed", 0)
+    left_unchanged = summary.get("left_unchanged", 0)
+    
+    # Build message
+    msg = f"🔍 *Rejection Scanner Complete*\n\n"
+    msg += f"📊 *Summary:*\n"
+    msg += f"• Total listings with votes: {total_voted}\n"
+    msg += f"• ✅ Marked as Reviewed: {marked_reviewed}\n"
+    msg += f"• ❌ Marked as Rejected: {marked_rejected}\n"
+    msg += f"• ⏺ Left unchanged: {left_unchanged}\n"
+    msg += f"\n⏰ {timestamp}\n"
+    
+    # Add rejected IDs if any
+    if rejected_ids:
+        msg += f"\n🚫 *Rejected ({len(rejected_ids)}):*\n"
+        # Show first 5 rejected IDs
+        for lid in rejected_ids[:5]:
+            msg += f"• `{lid}`\n"
+        if len(rejected_ids) > 5:
+            msg += f"• ... and {len(rejected_ids) - 5} more\n"
+    
+    # Add reviewed IDs if any
+    if reviewed_ids:
+        msg += f"\n✅ *Reviewed ({len(reviewed_ids)}):*\n"
+        # Show first 5 reviewed IDs
+        for lid in reviewed_ids[:5]:
+            msg += f"• `{lid}`\n"
+        if len(reviewed_ids) > 5:
+            msg += f"• ... and {len(reviewed_ids) - 5} more\n"
+    
+    return msg
+
+
 def _format_single_listing(listing: Dict[str, Any], frontend_url: str) -> str:
     """Format a single listing"""
     # Extract fields with fallbacks

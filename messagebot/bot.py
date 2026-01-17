@@ -10,7 +10,7 @@ import requests
 import paho.mqtt.client as mqtt
 
 import config
-from formatter import format_listings, format_heartbeat
+from formatter import format_listings, format_heartbeat, format_rejection_summary
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,6 +46,13 @@ class TelegramSender:
             logger.info(f"✅ Telegram message sent successfully")
             return True
         
+        except requests.exceptions.HTTPError as e:
+            try:
+                error_detail = response.json()
+                logger.error(f"❌ Telegram API error: {error_detail}")
+            except:
+                logger.error(f"❌ Telegram HTTP error {response.status_code}: {response.text}")
+            return False
         except Exception as e:
             logger.error(f"❌ Failed to send Telegram message: {e}")
             return False
@@ -68,6 +75,11 @@ class MessageBot:
             # Subscribe to new listings topic
             client.subscribe(config.MQTT_TOPIC_NEW_LISTINGS, qos=config.MQTT_QOS)
             logger.info(f"📬 Subscribed to topic: {config.MQTT_TOPIC_NEW_LISTINGS}")
+            
+            # Subscribe to rejection scanner topic
+            rejection_topic = f"{config.MQTT_TOPIC_PREFIX}/rejection-scanner"
+            client.subscribe(rejection_topic, qos=config.MQTT_QOS)
+            logger.info(f"🔍 Subscribed to topic: {rejection_topic}")
             
             # Subscribe to heartbeat topics (host-based and prefix-based)
             heartbeat_topics = {
@@ -96,8 +108,13 @@ class MessageBot:
             # Parse JSON payload
             payload = json.loads(msg.payload.decode('utf-8'))
             
-            # Check if this is a heartbeat message or new listings
-            if "heartbeat_type" in payload:
+            # Check message type and route accordingly
+            if "scanner_type" in payload and payload["scanner_type"] == "rejection_scanner":
+                # Handle rejection scanner summary
+                logger.info(f"🔍 Rejection scanner summary received")
+                message = format_rejection_summary(payload)
+                self.telegram.send_message(message)
+            elif "heartbeat_type" in payload:
                 # Handle heartbeat message
                 logger.info(f"💓 Heartbeat received (step {payload.get('last_step_completed', 0)})")
                 message = format_heartbeat(payload)

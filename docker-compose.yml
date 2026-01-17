@@ -61,6 +61,25 @@ services:
       - letsencrypt:/etc/letsencrypt:ro  # Read-only access to Let's Encrypt certificates
     restart: unless-stopped
 
+  # Rejection scanner: processes votes and marks rejected/reviewed listings
+  # Runs once per trigger; suitable for external cron/scheduler
+  rejection_scanner:
+    build:
+      context: ./rejection_scanner
+      dockerfile: Dockerfile
+    container_name: housefinder-rejection-scanner
+    environment:
+      DATA_DIR: /data
+      MQTT_HOST: ${MQTT_HOST}
+      MQTT_PORT: ${MQTT_PORT:-8883}
+      MQTT_CA_CERT_PATH: ${MQTT_CA_CERT_PATH}
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX:-housefinder}
+    volumes:
+      - ./backend:/data
+      - letsencrypt:/etc/letsencrypt:ro  # Read-only access to Let's Encrypt certificates
+    # No restart policy; container exits after completing scan
+    # Trigger manually or via external cron: docker-compose run --rm rejection_scanner
+
 volumes:
   postgres_data:
   letsencrypt:

@@ -25,6 +25,8 @@ jobs:
               - 'api/**'
             messagebot:
               - 'messagebot/**'
+            rejection_scanner:
+              - 'rejection_scanner/**'
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -76,8 +78,18 @@ jobs:
           tags: ghcr.io/tunsworthy/housefinder_messagebot:latest
           platforms: linux/arm64/v8
 
+      - name: Build and push rejection_scanner Docker image
+        if: steps.filter.outputs.rejection_scanner == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./rejection_scanner
+          file: ./rejection_scanner/Dockerfile
+          push: true
+          tags: ghcr.io/tunsworthy/housefinder_rejection_scanner:latest
+          platforms: linux/arm64/v8
+
       - name: Trigger Deployment
-        if: steps.filter.outputs.FrontEnd == 'true' || steps.filter.outputs.BackEnd == 'true' || steps.filter.outputs.API == 'true' || steps.filter.outputs.messagebot == 'true'
+        if: steps.filter.outputs.FrontEnd == 'true' || steps.filter.outputs.BackEnd == 'true' || steps.filter.outputs.API == 'true' || steps.filter.outputs.messagebot == 'true' || steps.filter.outputs.rejection_scanner == 'true'
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.DEPLOY_TOKEN }}

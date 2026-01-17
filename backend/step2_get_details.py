@@ -406,8 +406,10 @@ def main():
     save_suburbs(suburbs)
     
     # Publish MQTT notification for new listings
+    new_listings_count = 0
     if new_listings_details:
         logger.info(f"Publishing {len(new_listings_details)} new listing(s) to MQTT")
+        new_listings_count = len(new_listings_details)
         
         payload = NewListingsPayload(
             message_id=str(uuid.uuid4()),
@@ -427,6 +429,16 @@ def main():
         mqtt_client.disconnect()
     else:
         logger.info("No new listings to notify about")
+    
+    # Always publish a heartbeat, even if no new listings
+    logger.info("Publishing pipeline heartbeat")
+    heartbeat_client = MQTTNotificationClient()
+    heartbeat_client.publish_heartbeat(
+        pipeline_run_id=pipeline_run_id,
+        step_completed=2,
+        new_listings_count=new_listings_count,
+    )
+    heartbeat_client.disconnect()
     
     print("\n🎉 Done!")
     print(f"📁 Listing JSON stored in: {OUTPUT_FOLDER}/")

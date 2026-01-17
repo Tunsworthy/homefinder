@@ -1,5 +1,5 @@
 """
-Format new listing JSON into Telegram-friendly messages
+Format new listing JSON and heartbeat messages into Telegram-friendly messages
 """
 from typing import List, Dict, Any
 
@@ -40,6 +40,30 @@ def format_listings(payload: Dict[str, Any], frontend_url: str) -> List[str]:
     
     messages.append(current_message)
     return messages
+
+
+def format_heartbeat(payload: Dict[str, Any]) -> str:
+    """Format a heartbeat message from backend pipeline"""
+    heartbeat_type = payload.get("heartbeat_type", "pipeline_run")
+    step_completed = payload.get("last_step_completed", 0)
+    new_listings_count = payload.get("new_listings_count", 0)
+    timestamp = payload.get("timestamp", "unknown")
+    pipeline_run_id = payload.get("pipeline_run_id", "unknown")
+    
+    if heartbeat_type == "pipeline_run":
+        if new_listings_count > 0:
+            msg = f"💓 *Pipeline Heartbeat - Step {step_completed} Complete*\n"
+            msg += f"✨ Found {new_listings_count} new listing(s)\n"
+            msg += f"⏰ {timestamp}\n"
+            msg += f"🆔 Run: `{pipeline_run_id}`\n"
+        else:
+            msg = f"💓 *Pipeline Heartbeat - Step {step_completed} Complete*\n"
+            msg += f"ℹ️ No new listings found\n"
+            msg += f"⏰ {timestamp}\n"
+            msg += f"🆔 Run: `{pipeline_run_id}`\n"
+        return msg
+    
+    return f"💓 Heartbeat received: {heartbeat_type}"
 
 
 def _format_single_listing(listing: Dict[str, Any], frontend_url: str) -> str:

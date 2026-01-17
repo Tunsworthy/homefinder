@@ -73,7 +73,7 @@ jobs:
           context: ./backend
           file: ./api/Dockerfile
           push: true
-          tags: ghcr.io/tunsworthy/housefinder_api:latest
+          tags: ghcr.io/tunsworthy/housefinder_messagebot:latest
           platforms: linux/arm64/v8
 
       - name: Trigger Deployment

@@ -6,7 +6,9 @@ Uses paho-mqtt library with TLS support for Mosquitto broker.
 import json
 import logging
 import os
+import uuid
 from typing import Optional, Dict, Any
+from datetime import datetime
 import paho.mqtt.client as mqtt
 from config_mq import (
     MQTT_HOST,
@@ -19,7 +21,7 @@ from config_mq import (
     MQTT_KEEPALIVE,
     MQTT_CONNECT_TIMEOUT,
 )
-from schema import NewListingsPayload
+from schema import NewListingsPayload, HeartbeatPayload
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +149,56 @@ class MQTTNotificationClient:
 
         except Exception as e:
             logger.error(f"[MQ] Error publishing message: {e}")
+            return False
+
+    def publish_heartbeat(self, pipeline_run_id: str, step_completed: int, new_listings_count: int = 0) -> bool:
+        """
+        Publish heartbeat message to indicate backend is running.
+        
+        Args:
+            pipeline_run_id: ID of the current pipeline run
+            step_completed: Which step just finished (1 or 2)
+            new_listings_count: Number of new listings found (0 if none)
+            
+        Returns:
+            True if publish successful, False otherwise
+        """
+        try:
+            if not self.connected:
+                if not self.connect():
+                    logger.warning("[MQ] Not connected to broker, skipping heartbeat")
+                    return False
+
+            heartbeat_topic = f"{MQTT_HOST.split('.')[0]}-heartbeat" if '.' in MQTT_HOST else "housefinder-heartbeat"
+            
+            payload = HeartbeatPayload(
+                message_id=str(uuid.uuid4()),
+                timestamp=datetime.now().isoformat(),
+                heartbeat_type="pipeline_run",
+                pipeline_run_id=pipeline_run_id,
+                last_step_completed=step_completed,
+                new_listings_count=new_listings_count,
+            )
+
+            message_json = payload.json()
+            logger.info(f"[MQ] Publishing heartbeat to {heartbeat_topic}")
+
+            result = self.client.publish(
+                heartbeat_topic,
+                message_json,
+                qos=MQTT_QOS,
+                retain=False,  # Don't retain heartbeats
+            )
+
+            if result.rc != mqtt.MQTT_ERR_SUCCESS:
+                logger.error(f"[MQ] Heartbeat publish failed with code {result.rc}: {mqtt.error_string(result.rc)}")
+                return False
+
+            logger.info(f"[MQ] Heartbeat published successfully (run={pipeline_run_id}, step={step_completed})")
+            return True
+
+        except Exception as e:
+            logger.error(f"[MQ] Error publishing heartbeat: {e}")
             return False
 
     def disconnect(self):

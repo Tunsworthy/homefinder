@@ -49,6 +49,28 @@ class NewListingsPayload(BaseModel):
         }
 
 
+class HeartbeatPayload(BaseModel):
+    """Heartbeat message indicating backend is running"""
+    message_id: str
+    timestamp: str  # ISO 8601 format
+    heartbeat_type: str = "pipeline_run"  # "pipeline_run", "step_complete", "health_check"
+    pipeline_run_id: str
+    last_step_completed: int  # Which step just finished
+    new_listings_count: int = 0
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "message_id": "hb_uuid_12345",
+                "timestamp": "2025-01-17T14:30:00+10:00",
+                "heartbeat_type": "pipeline_run",
+                "pipeline_run_id": "run_20250117_143000",
+                "last_step_completed": 2,
+                "new_listings_count": 0
+            }
+        }
+
+
 class StepSummary(BaseModel):
     """Summary of Step 1 execution"""
     pipeline_run_id: str

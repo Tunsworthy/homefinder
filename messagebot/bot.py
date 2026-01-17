@@ -10,7 +10,7 @@ import requests
 import paho.mqtt.client as mqtt
 
 import config
-from formatter import format_listings
+from formatter import format_listings, format_heartbeat
 
 logging.basicConfig(
     level=logging.INFO,
@@ -68,6 +68,11 @@ class MessageBot:
             # Subscribe to new listings topic
             client.subscribe(config.MQTT_TOPIC_NEW_LISTINGS, qos=config.MQTT_QOS)
             logger.info(f"📬 Subscribed to topic: {config.MQTT_TOPIC_NEW_LISTINGS}")
+            
+            # Subscribe to heartbeat topic
+            heartbeat_topic = "housefinder-heartbeat"
+            client.subscribe(heartbeat_topic, qos=config.MQTT_QOS)
+            logger.info(f"💓 Subscribed to topic: {heartbeat_topic}")
         else:
             logger.error(f"❌ MQTT connection failed with code {rc}")
     
@@ -84,22 +89,31 @@ class MessageBot:
             
             # Parse JSON payload
             payload = json.loads(msg.payload.decode('utf-8'))
-            logger.info(f"📊 Payload: {payload.get('count', 0)} new listings")
             
-            # Format messages
-            messages = format_listings(payload, config.FRONTEND_URL)
-            
-            # Send each message to Telegram
-            for idx, message in enumerate(messages, 1):
-                logger.info(f"📤 Sending Telegram message {idx}/{len(messages)}")
-                success = self.telegram.send_message(message)
+            # Check if this is a heartbeat message or new listings
+            if "heartbeat_type" in payload:
+                # Handle heartbeat message
+                logger.info(f"💓 Heartbeat received (step {payload.get('last_step_completed', 0)})")
+                message = format_heartbeat(payload)
+                self.telegram.send_message(message)
+            else:
+                # Handle new listings message
+                logger.info(f"📊 Payload: {payload.get('count', 0)} new listings")
                 
-                if not success:
-                    logger.error(f"Failed to send message {idx}/{len(messages)}")
+                # Format messages
+                messages = format_listings(payload, config.FRONTEND_URL)
                 
-                # Rate limit: wait between messages
-                if idx < len(messages):
-                    time.sleep(1)
+                # Send each message to Telegram
+                for idx, message in enumerate(messages, 1):
+                    logger.info(f"📤 Sending Telegram message {idx}/{len(messages)}")
+                    success = self.telegram.send_message(message)
+                    
+                    if not success:
+                        logger.error(f"Failed to send message {idx}/{len(messages)}")
+                    
+                    # Rate limit: wait between messages
+                    if idx < len(messages):
+                        time.sleep(1)
         
         except json.JSONDecodeError as e:
             logger.error(f"❌ Invalid JSON in message: {e}")

@@ -43,6 +43,24 @@ services:
     # Run seed and import on startup
     command: sh -c "python -m api.scripts.seed_users && python -m api.scripts.import_json_to_pg"
 
+  # Messagebot service for Telegram notifications
+  messagebot:
+    build:
+      context: ./messagebot
+      dockerfile: Dockerfile
+    container_name: housefinder-messagebot
+    environment:
+      MQTT_HOST: ${MQTT_HOST}
+      MQTT_PORT: ${MQTT_PORT:-8883}
+      MQTT_CA_CERT_PATH: ${MQTT_CA_CERT_PATH}
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX:-housefinder}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5000}
+    volumes:
+      - letsencrypt:/etc/letsencrypt:ro  # Read-only access to Let's Encrypt certificates
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   letsencrypt:

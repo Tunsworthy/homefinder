@@ -6,6 +6,8 @@ from datetime import datetime
 import time
 import os
 
+from step1_summary import write_step1_summary
+
 BASE_URL = (
     "https://www.domain.com.au/sale/?suburb="
     "cheltenham-nsw-2119,"
@@ -193,3 +195,23 @@ if __name__ == "__main__":
     print(f"\n✔ Total IDs tracked: {len(existing)}")
     print(f"✔ Active: {sum(1 for v in existing.values() if v['status'] == 'active')}")
     print(f"✔ Missing: {sum(1 for v in existing.values() if v['status'] == 'missing')}")
+    
+    # Extract suburbs from BASE_URL for summary
+    # Find the suburb= parameter and parse it
+    suburb_match = re.search(r'suburb=([^&]+)', BASE_URL)
+    suburbs_list = []
+    if suburb_match:
+        suburbs_raw = suburb_match.group(1).split(',')
+        suburbs_list = [
+            s.replace('-', ' ').title() for s in suburbs_raw
+        ]
+    
+    # Write Step 1 summary for downstream processes
+    summary_file, summary = write_step1_summary(
+        existing_ids=existing,
+        current_ids=current_ids,
+        data_dir=DATA_DIR,
+        execution_time_seconds=0.0,
+        suburbs_targeted=suburbs_list,
+    )
+    print(f"✔ Summary written to: {summary_file}")

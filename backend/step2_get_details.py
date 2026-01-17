@@ -5,6 +5,17 @@ import csv
 import os
 import time
 import re
+import uuid
+import logging
+from datetime import datetime
+
+from step1_summary import read_step1_summary
+from notification_client import MQTTNotificationClient
+from schema import NewListingsPayload, NewListingDetail
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 DATA_DIR = os.environ.get("DATA_DIR", ".")
 LISTING_IDS_FILE = os.path.join(DATA_DIR, "listing_ids.json")
@@ -273,11 +284,19 @@ def save_listing_json(listing_id, data):
 
 
 def main():
+    # Read Step 1 summary to identify new listings
+    step1_summary = read_step1_summary(DATA_DIR)
+    new_ids_from_step1 = step1_summary.get("new_ids", [])
+    pipeline_run_id = step1_summary.get("pipeline_run_id", f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+    
+    logger.info(f"Step 1 identified {len(new_ids_from_step1)} new listings")
+    
     ids = load_listing_ids()
     print(f"Found {len(ids)} IDs — scraping each listing…")
 
     suburbs = load_suburbs()
     summary_rows = []
+    new_listings_details = []  # Track new listings for MQTT notification
 
     for listing_id in ids:
         print(f" → Fetching listing {listing_id}…")
@@ -305,10 +324,56 @@ def main():
             "parking": data.get("parking"),
         })
 
+        # Collect new listings for MQTT notification
+        if listing_id in new_ids_from_step1:
+            new_listings_details.append(
+                NewListingDetail(
+                    id=listing_id,
+                    address=data.get("address", ""),
+                    suburb=data.get("suburb"),
+                    price=data.get("price", ""),
+                    status=data.get("status", "unknown"),
+                    sold_price=data.get("sold_price"),
+                    headline=data.get("headline"),
+                    bedrooms=data.get("bedrooms"),
+                    bathrooms=data.get("bathrooms"),
+                    parking=data.get("parking"),
+                    property_type=data.get("property_type"),
+                    property_size=data.get("property_size"),
+                    agent_name=data.get("agent_name"),
+                    agent_phone=data.get("agent_phone"),
+                    url=data.get("url", ""),
+                    image_urls=data.get("image_urls", []),
+                )
+            )
+
         time.sleep(0.4)
 
     # Save suburbs list
     save_suburbs(suburbs)
+    
+    # Publish MQTT notification for new listings
+    if new_listings_details:
+        logger.info(f"Publishing {len(new_listings_details)} new listing(s) to MQTT")
+        
+        payload = NewListingsPayload(
+            message_id=str(uuid.uuid4()),
+            timestamp=datetime.now().isoformat(),
+            step=2,
+            pipeline_run_id=pipeline_run_id,
+            new_listings=new_listings_details,
+            count=len(new_listings_details),
+        )
+        
+        mqtt_client = MQTTNotificationClient()
+        if mqtt_client.publish_new_listings(payload):
+            logger.info(f"✔ MQTT notification published successfully")
+        else:
+            logger.warning(f"⚠ Failed to publish MQTT notification (non-blocking, continuing)")
+        
+        mqtt_client.disconnect()
+    else:
+        logger.info("No new listings to notify about")
     
     print("\n🎉 Done!")
     print(f"📁 Listing JSON stored in: {OUTPUT_FOLDER}/")

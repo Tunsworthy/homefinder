@@ -1,3 +1,5 @@
 curl-cffi
 beautifulsoup4
 requests
+paho-mqtt>=1.6.1
+pydantic>=1.10.0

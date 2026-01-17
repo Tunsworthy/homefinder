@@ -27,9 +27,15 @@ services:
     environment:
       DATABASE_URL: postgresql://housefinder:housefinder@postgres:5432/housefinder
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      MQTT_HOST: ${MQTT_HOST}
+      MQTT_PORT: ${MQTT_PORT:-8883}
+      MQTT_CA_CERT_PATH: ${MQTT_CA_CERT_PATH}
+      MQTT_QOS: ${MQTT_QOS:-1}
+      MQTT_RETAIN: ${MQTT_RETAIN:-true}
     volumes:
       - ./backend:/app/backend:ro  # Read-only access to JSON data for import
       - ./api:/app/api            # API code (for development hot-reload)
+      - letsencrypt:/etc/letsencrypt:ro  # Read-only access to Let's Encrypt certificates
     depends_on:
       postgres:
         condition: service_healthy
@@ -38,3 +44,4 @@ services:
 
 volumes:
   postgres_data:
+  letsencrypt:

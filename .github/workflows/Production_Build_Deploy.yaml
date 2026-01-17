@@ -71,7 +71,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./backend
-          file: ./api/Dockerfile
+          file: ./messagebot/Dockerfile
           push: true
           tags: ghcr.io/tunsworthy/housefinder_messagebot:latest
           platforms: linux/arm64/v8

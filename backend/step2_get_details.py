@@ -7,7 +7,7 @@ import time
 import re
 import uuid
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from step1_summary import read_step1_summary
 from notification_client import MQTTNotificationClient
@@ -37,6 +37,36 @@ def load_suburbs():
         with open(SUBURBS_FILE, "r", encoding="utf-8") as f:
             return set(json.load(f))
     return set()
+
+
+def needs_update(listing_id: str, hours_since_update: int = 24) -> bool:
+    """
+    Check if a listing needs updating.
+    Returns True if listing is new or last updated > hours_since_update ago.
+    """
+    json_file = os.path.join(OUTPUT_FOLDER, f"{listing_id}.json")
+    
+    if not os.path.exists(json_file):
+        # New listing
+        return True
+    
+    try:
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        # Check if file has update timestamp
+        if "last_updated" not in data:
+            # Old format without timestamp, update it
+            return True
+        
+        last_updated = datetime.fromisoformat(data["last_updated"])
+        hours_ago = (datetime.now() - last_updated).total_seconds() / 3600
+        
+        return hours_ago >= hours_since_update
+    
+    except Exception as e:
+        logger.warning(f"Error checking update time for {listing_id}: {e}, will update")
+        return True
 
 
 def save_suburbs(suburbs_set):
@@ -177,27 +207,36 @@ def extract_auction_times(soup):
 
 
 def fetch_listing_html(listing_id):
+    """
+    Fetch listing HTML from Domain.
+    Returns HTML string on success, None on any error (will be skipped gracefully).
+    """
     url = BASE_URL + listing_id
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
     }
 
-    r = requests.get(
-    url,
-    headers=headers,
-    impersonate="chrome",
-    timeout=10,
-    curl_options={
-        CurlOpt.IPRESOLVE: 1  # FORCE IPv4
-    }
-    )
-    if r.status_code == 404:
-        print(f"❌ Listing {listing_id} not found")
-        return None
+    try:
+        r = requests.get(
+            url,
+            headers=headers,
+            impersonate="chrome",
+            timeout=10,
+            curl_options={
+                CurlOpt.IPRESOLVE: 1  # FORCE IPv4
+            }
+        )
+        if r.status_code == 404:
+            logger.warning(f"Listing {listing_id} not found (404)")
+            return None
 
-    r.raise_for_status()
-    return r.text
+        r.raise_for_status()
+        return r.text
+    
+    except Exception as e:
+        logger.warning(f"Failed to fetch listing {listing_id}: {type(e).__name__}: {str(e)[:100]}")
+        return None
 
 
 def extract_text(soup, selector):
@@ -286,7 +325,7 @@ def save_listing_json(listing_id, data):
 def main():
     # Read Step 1 summary to identify new listings
     step1_summary = read_step1_summary(DATA_DIR)
-    new_ids_from_step1 = step1_summary.get("new_ids", [])
+    new_ids_from_step1 = set(step1_summary.get("new_ids", []))
     pipeline_run_id = step1_summary.get("pipeline_run_id", f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
     
     logger.info(f"Step 1 identified {len(new_ids_from_step1)} new listings")
@@ -298,13 +337,27 @@ def main():
     summary_rows = []
     new_listings_details = []  # Track new listings for MQTT notification
 
+    # Sort: new listings first, then ones that need updating
+    listings_to_process = []
     for listing_id in ids:
+        if listing_id in new_ids_from_step1:
+            listings_to_process.append((0, listing_id))  # Priority 0 = new
+        elif needs_update(listing_id):
+            listings_to_process.append((1, listing_id))  # Priority 1 = needs update
+    
+    listings_to_process.sort()  # Sort by priority, then ID
+    
+    logger.info(f"Processing {len(listings_to_process)} listings ({len([l for l in listings_to_process if l[0] == 0])} new, {len([l for l in listings_to_process if l[0] == 1])} need update)")
+
+    for _, listing_id in listings_to_process:
         print(f" → Fetching listing {listing_id}…")
         html = fetch_listing_html(listing_id)
         if not html:
+            logger.info(f"⏭ Skipping listing {listing_id} (fetch failed)")
             continue
 
         data = parse_listing(html, listing_id)
+        data["last_updated"] = datetime.now().isoformat()  # Add update timestamp
         save_listing_json(listing_id, data)
 
         # Track suburb if found

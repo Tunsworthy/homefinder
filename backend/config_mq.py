@@ -10,7 +10,8 @@ MQTT_PORT = int(os.getenv("MQTT_PORT", "8883"))
 MQTT_CA_CERT_PATH = os.getenv("MQTT_CA_CERT_PATH", "")
 
 # MQTT Topics
-MQTT_TOPIC_NEW_LISTINGS = os.getenv("MQTT_TOPIC_NEW_LISTINGS", "housefinder/new-listings")
+MQTT_TOPIC_PREFIX = os.getenv("MQTT_TOPIC_PREFIX", "housefinder")
+MQTT_TOPIC_NEW_LISTINGS = os.getenv("MQTT_TOPIC_NEW_LISTINGS", f"{MQTT_TOPIC_PREFIX}/new-listings")
 
 # MQTT Quality of Service and Retention
 MQTT_QOS = int(os.getenv("MQTT_QOS", "1"))  # 1 = at-least-once delivery

@@ -30,6 +30,7 @@ services:
       MQTT_HOST: ${MQTT_HOST}
       MQTT_PORT: ${MQTT_PORT:-8883}
       MQTT_CA_CERT_PATH: ${MQTT_CA_CERT_PATH}
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX:-housefinder}
       MQTT_QOS: ${MQTT_QOS:-1}
       MQTT_RETAIN: ${MQTT_RETAIN:-true}
     volumes:

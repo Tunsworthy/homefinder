@@ -24,7 +24,8 @@ MQTT_PORT = int(os.getenv("MQTT_PORT", "8883"))
 MQTT_CA_CERT_PATH = os.getenv("MQTT_CA_CERT_PATH", "")
 MQTT_USERNAME = os.getenv("MQTT_USERNAME")
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
-MQTT_TEST_TOPIC = os.getenv("MQTT_TEST_TOPIC", "housefinder/healthcheck")
+MQTT_TOPIC_PREFIX = os.getenv("MQTT_TOPIC_PREFIX", "housefinder")
+MQTT_TEST_TOPIC = os.getenv("MQTT_TEST_TOPIC", f"{MQTT_TOPIC_PREFIX}/healthcheck")
 MQTT_QOS = int(os.getenv("MQTT_QOS", "1"))
 MQTT_RETAIN = os.getenv("MQTT_RETAIN", "false").lower() == "true"
 MQTT_INSECURE = os.getenv("MQTT_INSECURE", "false").lower() == "true"

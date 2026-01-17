@@ -69,10 +69,16 @@ class MessageBot:
             client.subscribe(config.MQTT_TOPIC_NEW_LISTINGS, qos=config.MQTT_QOS)
             logger.info(f"📬 Subscribed to topic: {config.MQTT_TOPIC_NEW_LISTINGS}")
             
-            # Subscribe to heartbeat topic
-            heartbeat_topic = "housefinder-heartbeat"
-            client.subscribe(heartbeat_topic, qos=config.MQTT_QOS)
-            logger.info(f"💓 Subscribed to topic: {heartbeat_topic}")
+            # Subscribe to heartbeat topics (host-based and prefix-based)
+            heartbeat_topics = {
+                "housefinder-heartbeat",
+                f"{config.MQTT_TOPIC_PREFIX}-heartbeat",
+            }
+            if "." in config.MQTT_HOST:
+                heartbeat_topics.add(f"{config.MQTT_HOST.split('.')[0]}-heartbeat")
+            for hb_topic in heartbeat_topics:
+                client.subscribe(hb_topic, qos=config.MQTT_QOS)
+                logger.info(f"💓 Subscribed to topic: {hb_topic}")
         else:
             logger.error(f"❌ MQTT connection failed with code {rc}")
     
@@ -166,5 +172,3 @@ class MessageBot:
 if __name__ == "__main__":
     bot = MessageBot()
     bot.run()
-
-#update

@@ -70,7 +70,7 @@ jobs:
         if: steps.filter.outputs.messagebot == 'true'
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          context: ./messagebot
           file: ./messagebot/Dockerfile
           push: true
           tags: ghcr.io/tunsworthy/housefinder_messagebot:latest

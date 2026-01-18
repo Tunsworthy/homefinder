@@ -270,6 +270,12 @@ function buildQueryParams() {
   const qs = new URLSearchParams({offset: '0', limit: '500', status: statusParam, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode})
   if (currentTravelMax && currentTravelMax !== 'any') qs.set('travel_max', String(currentTravelMax))
   if (currentSearchTerm) qs.set('search', currentSearchTerm)
+  if (Array.isArray(currentWorkflowStatuses) && currentWorkflowStatuses.length > 0) {
+    currentWorkflowStatuses.forEach(status => qs.append('workflow_status', status))
+  }
+  if (Array.isArray(currentSuburbs) && currentSuburbs.length > 0) {
+    currentSuburbs.forEach(suburb => qs.append('suburb', suburb))
+  }
   return qs
 }
 
@@ -608,6 +614,7 @@ function initFilterControls() {
   // Apply Filters button
   if (applyFiltersBtn) {
     applyFiltersBtn.addEventListener('click', () => {
+      saveFilters()
       reload()
     })
   }
@@ -620,7 +627,7 @@ function initFilterControls() {
       currentSort = 'travel'
       currentExcludeMode = 'none'
       currentTravelMax = '55'
-      currentWorkflowStatuses = ['active']
+      currentWorkflowStatuses = ['inspection_planned','reviewed','enquiry_sent','inspected']
       currentSuburbs = []
       currentHideDuplex = true
       currentSearchTerm = ''
@@ -633,7 +640,7 @@ function initFilterControls() {
       if (filterTomYesBtn) setToggleVisual(filterTomYesBtn, false, 'yellow')
       if (filterMqYesBtn) setToggleVisual(filterMqYesBtn, false, 'purple')
       if (hideDuplexBtn) { hideDuplexBtn.setAttribute('aria-pressed', 'true'); setToggleVisual(hideDuplexBtn, true, 'green') }
-      if (filterWorkflowStatusSelect && window.workflowStatusSelect) workflowStatusSelect.setValue(['active'])
+      if (filterWorkflowStatusSelect && window.workflowStatusSelect) workflowStatusSelect.setValue(['inspection_planned','reviewed','enquiry_sent','inspected'])
       if (filterSuburbsSelect && window.suburbsSelect) suburbsSelect.setValue([])
       saveFilters(); reload()
     })

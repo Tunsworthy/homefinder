@@ -661,7 +661,7 @@ function loadGoogleMaps() {
     const key = loader ? (loader.dataset.apiKey || '') : ''
     const script = document.createElement('script')
     const cbName = '__hfInitMap'
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=${cbName}`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=${cbName}&loading=async`
     script.async = true
     script.onerror = () => reject(new Error('Google Maps failed to load'))
     window[cbName] = () => resolve()
@@ -686,6 +686,13 @@ async function boot() {
     streetViewControl: false,
   })
   infoWindow = new google.maps.InfoWindow()
+  
+  // Mark wheel events as passive for better performance
+  const mapContainer = document.getElementById('map')
+  if (mapContainer) {
+    mapContainer.addEventListener('wheel', () => {}, { passive: true })
+  }
+  
   reload()
 }
 

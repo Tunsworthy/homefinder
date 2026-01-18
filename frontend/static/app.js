@@ -22,6 +22,7 @@ let filtersPanel = null
 let sortMenuToggle = null
 let sortPanel = null
 let sortRankingBtn = null
+let applyFiltersBtn = null
 
 // currentFilter and currentSort will be loaded from localStorage below
 // persistent filters stored in localStorage
@@ -471,7 +472,7 @@ function populateTravelSelect(){
   filterTravelSelect.value = currentTravelMax || 'any'
   filterTravelSelect.addEventListener('change', () => {
     currentTravelMax = filterTravelSelect.value
-    saveFilters(); resetAndLoad()
+    saveFilters()
   })
 }
 
@@ -490,7 +491,7 @@ function applyWorkflowStatusUI(){
       this.setValue(currentWorkflowStatuses)
     },
     onChange: function(values) {
-      // Update current filter and reload
+      // Update current filter (don't reload yet)
       currentWorkflowStatuses = Array.isArray(values) ? values : (values ? [values] : [])
       // Ensure at least one status is selected; default to 'active' if empty
       if (currentWorkflowStatuses.length === 0) {
@@ -498,7 +499,6 @@ function applyWorkflowStatusUI(){
         this.setValue(['active'])
       }
       saveFilters()
-      resetAndLoad()
     }
   })
 }
@@ -528,10 +528,9 @@ async function applySuburbsUI(){
         maxItems: null, // allow multiple selections
         closeAfterSelect: false,
         onChange: function(values) {
-          // Update current filter and reload
+          // Update current filter (don't reload yet)
           currentSuburbs = Array.isArray(values) ? values : (values ? [values] : [])
           saveFilters()
-          resetAndLoad()
         }
       })
       
@@ -554,7 +553,7 @@ function applyHideDuplexUI(){
     currentHideDuplex = !currentHideDuplex
     hideDuplexBtn.setAttribute('aria-pressed', currentHideDuplex ? 'true' : 'false')
     setToggleVisual(hideDuplexBtn, currentHideDuplex, 'green')
-    saveFilters(); resetAndLoad()
+    saveFilters()
   })
 }
 
@@ -716,7 +715,7 @@ function initFilterHandlers() {
     hideSoldBtn.addEventListener('click', () => {
       currentFilter = (currentFilter === 'hide_sold') ? 'all' : 'hide_sold'
       updateHideSoldUI()
-      saveFilters(); resetAndLoad()
+      saveFilters()
     })
   }
 
@@ -728,7 +727,7 @@ function initFilterHandlers() {
       sortTravelBtn.textContent = on ? 'Travel Time (On)' : 'Travel Time (Off)'
     }
     updateSortUI()
-    sortTravelBtn.addEventListener('click', () => { currentSort = currentSort === 'travel' ? 'none' : 'travel'; saveFilters(); resetAndLoad(); updateSortUI() })
+    sortTravelBtn.addEventListener('click', () => { currentSort = currentSort === 'travel' ? 'none' : 'travel'; saveFilters(); updateSortUI() })
   }
 
   // cycle tri-state: any -> yes -> no -> any
@@ -739,7 +738,7 @@ function initFilterHandlers() {
       else { setToggleVisual(filterTomYesBtn, false); filterTomYesBtn.textContent = 'Tom' }
     }
     updateTomUI()
-    filterTomYesBtn.addEventListener('click', () => { currentTomFilter = currentTomFilter === 'any' ? 'yes' : (currentTomFilter === 'yes' ? 'no' : 'any'); saveFilters(); resetAndLoad(); updateTomUI() })
+    filterTomYesBtn.addEventListener('click', () => { currentTomFilter = currentTomFilter === 'any' ? 'yes' : (currentTomFilter === 'yes' ? 'no' : 'any'); saveFilters(); updateTomUI() })
   }
   if (filterMqYesBtn) {
     const updateMqUI = () => {
@@ -748,14 +747,14 @@ function initFilterHandlers() {
       else { setToggleVisual(filterMqYesBtn, false); filterMqYesBtn.textContent = 'MQ' }
     }
     updateMqUI()
-    filterMqYesBtn.addEventListener('click', () => { currentMqFilter = currentMqFilter === 'any' ? 'yes' : (currentMqFilter === 'yes' ? 'no' : 'any'); saveFilters(); resetAndLoad(); updateMqUI() })
+    filterMqYesBtn.addEventListener('click', () => { currentMqFilter = currentMqFilter === 'any' ? 'yes' : (currentMqFilter === 'yes' ? 'no' : 'any'); saveFilters(); updateMqUI() })
   }
 
   if (filterExcludeSelect) {
     filterExcludeSelect.value = currentExcludeMode || 'none'
     filterExcludeSelect.addEventListener('change', () => {
       currentExcludeMode = filterExcludeSelect.value
-      saveFilters(); resetAndLoad()
+      saveFilters()
     })
   }
 }
@@ -857,6 +856,7 @@ document.addEventListener('DOMContentLoaded', () => {
   sortMenuToggle = document.getElementById('sort-menu-toggle')
   sortPanel = document.getElementById('sort-panel')
   sortRankingBtn = document.getElementById('sort-ranking')
+  applyFiltersBtn = document.getElementById('apply-filters-btn')
 
   try { applyStoredToUI() } catch(e) { console.error('applyStoredToUI failed', e) }
   try { populateTravelSelect() } catch(e) { console.error('populateTravelSelect failed', e) }
@@ -864,6 +864,14 @@ document.addEventListener('DOMContentLoaded', () => {
   try { applySuburbsUI() } catch(e) { console.error('applySuburbsUI failed', e) }
   try { applyHideDuplexUI() } catch(e) { console.error('applyHideDuplexUI failed', e) }
   try { initFilterHandlers() } catch(e) { console.error('initFilterHandlers failed', e) }
+  
+  // Apply filters button
+  if (applyFiltersBtn) {
+    applyFiltersBtn.addEventListener('click', () => {
+      resetAndLoad()
+    })
+  }
+  
   // filters panel toggle
   if (filtersToggle && filtersPanel) {
     filtersToggle.addEventListener('click', (ev) => {
@@ -912,7 +920,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sortRankingBtn.addEventListener('click', (ev) => {
       ev.preventDefault(); ev.stopPropagation();
       currentRanking = !currentRanking
-      saveFilters(); resetAndLoad(); updateSortPanelUI()
+      saveFilters(); updateSortPanelUI()
     })
   }
   // ensure initial visual state

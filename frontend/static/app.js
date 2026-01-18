@@ -25,22 +25,8 @@ let sortRankingBtn = null
 let applyFiltersBtn = null
 
 // currentFilter and currentSort will be loaded from localStorage below
-// persistent filters stored in localStorage
-let stored = {}
-try { stored = JSON.parse(localStorage.getItem('hf_filters') || '{}') } catch(e) { stored = {} }
-let currentTomFilter = stored.tom || 'any' // any, yes, no
-let currentMqFilter = stored.mq || 'any'
-// defaults: hide sold by default, sort by travel on, hide duplex on, travel max 55
-let currentFilter = (typeof stored.status === 'undefined') ? 'hide_sold' : stored.status || 'all'
-let currentSort = stored.sort || 'travel'
-let currentExcludeMode = stored.exclude_voted_mode || 'none'
-let currentTravelMax = stored.travel_max || '55' // minutes or 'any'
-let currentWorkflowStatuses = stored.workflow_statuses || ['active'] // array of workflow statuses
-let currentSuburbs = stored.suburbs || [] // array of selected suburbs
-let currentHideDuplex = (typeof stored.hide_duplex === 'undefined') ? true : !!stored.hide_duplex
-let currentSearchTerm = stored.search || ''
-// allow ranking toggle alongside travel sort
-let currentRanking = !!stored.ranking
+// Load shared filters from filters.js
+loadStoredFilters()
 function setToggleVisual(btn, on, color) {
   if (!btn) return
   // remove common on/off classes
@@ -460,101 +446,27 @@ function resetAndLoad() {
 }
 
 // populate travel select with 5-minute increments up to 120
-function populateTravelSelect(){
-  if (!filterTravelSelect) return
-  filterTravelSelect.innerHTML = '<option value="any">Any</option>'
-  for (let m = 5; m <= 120; m += 5){
-    const opt = document.createElement('option')
-    opt.value = String(m)
-    opt.textContent = `${m} min`
-    filterTravelSelect.appendChild(opt)
-  }
-  filterTravelSelect.value = currentTravelMax || 'any'
-  filterTravelSelect.addEventListener('change', () => {
-    currentTravelMax = filterTravelSelect.value
-    saveFilters()
-  })
+function initTravelSelect(){
+  populateTravelSelect(filterTravelSelect, resetAndLoad)
 }
 
 // workflow status multi-select handling with TomSelect
-function applyWorkflowStatusUI(){
+function initWorkflowStatusUI(){
   const selectEl = document.getElementById('filter-workflow-status')
   if (!selectEl) return
-  
-  // Initialize TomSelect with pills UI
-  workflowStatusSelect = new TomSelect(selectEl, {
-    plugins: ['remove_button'],
-    maxItems: null, // allow multiple selections
-    closeAfterSelect: true,
-    onInitialize: function() {
-      // Set initial values from stored filter
-      this.setValue(currentWorkflowStatuses)
-    },
-    onChange: function(values) {
-      // Update current filter (don't reload yet)
-      currentWorkflowStatuses = Array.isArray(values) ? values : (values ? [values] : [])
-      // Ensure at least one status is selected; default to 'active' if empty
-      if (currentWorkflowStatuses.length === 0) {
-        currentWorkflowStatuses = ['active']
-        this.setValue(['active'])
-      }
-      saveFilters()
-    }
-  })
+  workflowStatusSelect = applyWorkflowStatusUI(selectEl, resetAndLoad)
 }
 
 // suburbs multi-select handling with TomSelect
-async function applySuburbsUI(){
+async function initSuburbsUI(){
   const selectEl = document.getElementById('filter-suburbs')
   if (!selectEl) return
-  
-  try {
-    // Fetch suburbs list from API
-    const res = await fetch('/api/suburbs')
-    const data = await res.json()
-    
-    if (data.ok && data.suburbs) {
-      // Populate options
-      data.suburbs.forEach(suburb => {
-        const option = document.createElement('option')
-        option.value = suburb
-        option.textContent = suburb
-        selectEl.appendChild(option)
-      })
-      
-      // Initialize TomSelect with pills UI and search
-      suburbsSelect = new TomSelect(selectEl, {
-        plugins: ['remove_button'],
-        maxItems: null, // allow multiple selections
-        closeAfterSelect: false,
-        onChange: function(values) {
-          // Update current filter (don't reload yet)
-          currentSuburbs = Array.isArray(values) ? values : (values ? [values] : [])
-          saveFilters()
-        }
-      })
-      
-      // Set initial values from stored filter
-      if (currentSuburbs && currentSuburbs.length > 0) {
-        suburbsSelect.setValue(currentSuburbs)
-      }
-    }
-  } catch (err) {
-    console.error('Failed to load suburbs:', err)
-  }
+  suburbsSelect = await applySuburbsUI(selectEl, resetAndLoad)
 }
 
 // hide-duplex button handling (dropdown-styled toggle)
-function applyHideDuplexUI(){
-  if (!hideDuplexBtn) return
-  setToggleVisual(hideDuplexBtn, currentHideDuplex, 'green')
-  hideDuplexBtn.setAttribute('aria-pressed', currentHideDuplex ? 'true' : 'false')
-  hideDuplexBtn.addEventListener('click', () => {
-    currentHideDuplex = !currentHideDuplex
-    hideDuplexBtn.setAttribute('aria-pressed', currentHideDuplex ? 'true' : 'false')
-    setToggleVisual(hideDuplexBtn, currentHideDuplex, 'green')
-    saveFilters()
-  })
+function initHideDuplexUI(){
+  applyHideDuplexUI(hideDuplexBtn, resetAndLoad)
 }
 
 // Insert comment DOM element into a card's existing-comments container
@@ -684,11 +596,6 @@ function insertCommentIntoCard(cardEl, comment) {
     })
   }
   // don't attach a global image handler here — image click handlers are set in renderItem
-}
-
-function saveFilters(){
-  const obj = {status: currentFilter, sort: currentSort, ranking: !!currentRanking, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode, travel_max: currentTravelMax, workflow_statuses: currentWorkflowStatuses, suburbs: currentSuburbs, hide_duplex: currentHideDuplex, search: currentSearchTerm}
-  try{ localStorage.setItem('hf_filters', JSON.stringify(obj)) }catch(e){}
 }
 
 // Search functionality
@@ -859,10 +766,10 @@ document.addEventListener('DOMContentLoaded', () => {
   applyFiltersBtn = document.getElementById('apply-filters-btn')
 
   try { applyStoredToUI() } catch(e) { console.error('applyStoredToUI failed', e) }
-  try { populateTravelSelect() } catch(e) { console.error('populateTravelSelect failed', e) }
-  try { applyWorkflowStatusUI() } catch(e) { console.error('applyWorkflowStatusUI failed', e) }
-  try { applySuburbsUI() } catch(e) { console.error('applySuburbsUI failed', e) }
-  try { applyHideDuplexUI() } catch(e) { console.error('applyHideDuplexUI failed', e) }
+  try { initTravelSelect() } catch(e) { console.error('initTravelSelect failed', e) }
+  try { initWorkflowStatusUI() } catch(e) { console.error('initWorkflowStatusUI failed', e) }
+  try { initSuburbsUI() } catch(e) { console.error('initSuburbsUI failed', e) }
+  try { initHideDuplexUI() } catch(e) { console.error('initHideDuplexUI failed', e) }
   try { initFilterHandlers() } catch(e) { console.error('initFilterHandlers failed', e) }
   
   // Apply filters button

@@ -13,22 +13,15 @@ let filterTomYesBtn = null
 let filterMqYesBtn = null
 let filterExcludeSelect = null
 let filterTravelSelect = null
+let workflowStatusSelect = null
+let suburbsSelect = null
 let hideDuplexBtn = null
 let searchInput = null
 let resetFiltersBtn = null
+let applyFiltersBtn = null
 
-// persistent filters stored in localStorage (same key as list page)
-let stored = {}
-try { stored = JSON.parse(localStorage.getItem('hf_filters') || '{}') } catch (e) { stored = {} }
-let currentTomFilter = stored.tom || 'any'
-let currentMqFilter = stored.mq || 'any'
-let currentFilter = (typeof stored.status === 'undefined') ? 'hide_sold' : stored.status || 'all'
-let currentSort = stored.sort || 'travel'
-let currentExcludeMode = stored.exclude_voted_mode || 'none'
-let currentTravelMax = stored.travel_max || '55'
-let currentHideDuplex = (typeof stored.hide_duplex === 'undefined') ? true : !!stored.hide_duplex
-let currentSearchTerm = stored.search || ''
-let currentRanking = !!stored.ranking
+// Load shared filters from filters.js
+loadStoredFilters()
 
 // Utilities from list view
 function escapeHtml(s) {
@@ -39,52 +32,6 @@ function escapeHtml(s) {
 function stripHtml(s) {
   if (s === null || typeof s === 'undefined') return ''
   return String(s).replace(/<[^>]*>/g, '')
-}
-
-function setToggleVisual(btn, on, color) {
-  if (!btn) return
-  btn.classList.remove('bg-green-600','bg-red-600','bg-gray-200','bg-gray-100','bg-blue-600','bg-yellow-100','bg-purple-100','text-white','text-gray-800')
-  if (on) {
-    let className = 'bg-green-600'
-    if (color === 'blue') className = 'bg-blue-600'
-    if (color === 'red') className = 'bg-red-600'
-    btn.classList.add(className,'text-white')
-  } else {
-    btn.classList.add('bg-gray-200','text-gray-800')
-  }
-}
-
-function saveFilters() {
-  const obj = {status: currentFilter, sort: currentSort, ranking: !!currentRanking, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode, travel_max: currentTravelMax, hide_duplex: currentHideDuplex, search: currentSearchTerm}
-  try { localStorage.setItem('hf_filters', JSON.stringify(obj)) } catch (e) {}
-}
-
-function populateTravelSelect() {
-  if (!filterTravelSelect) return
-  filterTravelSelect.innerHTML = '<option value="any">Any</option>'
-  for (let m = 5; m <= 120; m += 5) {
-    const opt = document.createElement('option')
-    opt.value = String(m)
-    opt.textContent = `${m} min`
-    filterTravelSelect.appendChild(opt)
-  }
-  filterTravelSelect.value = currentTravelMax || 'any'
-  filterTravelSelect.addEventListener('change', () => {
-    currentTravelMax = filterTravelSelect.value
-    saveFilters(); reload()
-  })
-}
-
-function applyHideDuplexUI() {
-  if (!hideDuplexBtn) return
-  setToggleVisual(hideDuplexBtn, currentHideDuplex, 'green')
-  hideDuplexBtn.setAttribute('aria-pressed', currentHideDuplex ? 'true' : 'false')
-  hideDuplexBtn.addEventListener('click', () => {
-    currentHideDuplex = !currentHideDuplex
-    hideDuplexBtn.setAttribute('aria-pressed', currentHideDuplex ? 'true' : 'false')
-    setToggleVisual(hideDuplexBtn, currentHideDuplex, 'green')
-    saveFilters(); reload()
-  })
 }
 
 // Tooltip helpers (for commute breakdown)
@@ -572,9 +519,12 @@ function initFilterControls() {
   filterMqYesBtn = document.getElementById('filter-mq-yes')
   filterExcludeSelect = document.getElementById('exclude-voted-select')
   filterTravelSelect = document.getElementById('filter-travel-max')
+  const filterWorkflowStatusSelect = document.getElementById('filter-workflow-status')
+  const filterSuburbsSelect = document.getElementById('filter-suburbs')
   hideDuplexBtn = document.getElementById('hide-duplex-btn')
   searchInput = document.getElementById('searchInput')
   resetFiltersBtn = document.getElementById('reset-filters')
+  applyFiltersBtn = document.getElementById('apply-filters-btn')
   container = document.getElementById('listings')
   totalCountEl = document.getElementById('total-count')
   availableCountEl = document.getElementById('available-count')
@@ -597,7 +547,7 @@ function initFilterControls() {
     update()
     hideSoldBtn.addEventListener('click', () => {
       currentFilter = (currentFilter === 'hide_sold') ? 'all' : 'hide_sold'
-      update(); saveFilters(); reload()
+      update(); saveFilters()
     })
   }
 
@@ -608,10 +558,10 @@ function initFilterControls() {
     }
     sync()
     sortTravelBtn.addEventListener('click', () => {
-      currentSort = 'travel'; sync(); saveFilters(); reload()
+      currentSort = 'travel'; sync(); saveFilters()
     })
     sortRankingBtn.addEventListener('click', () => {
-      currentRanking = !currentRanking; sync(); saveFilters(); reload()
+      currentRanking = !currentRanking; sync(); saveFilters()
     })
   }
 
@@ -620,7 +570,7 @@ function initFilterControls() {
     sync()
     filterTomYesBtn.addEventListener('click', () => {
       currentTomFilter = (currentTomFilter === 'yes') ? 'any' : 'yes'
-      sync(); saveFilters(); reload()
+      sync(); saveFilters()
     })
   }
   if (filterMqYesBtn) {
@@ -628,7 +578,7 @@ function initFilterControls() {
     sync()
     filterMqYesBtn.addEventListener('click', () => {
       currentMqFilter = (currentMqFilter === 'yes') ? 'any' : 'yes'
-      sync(); saveFilters(); reload()
+      sync(); saveFilters()
     })
   }
 
@@ -636,12 +586,22 @@ function initFilterControls() {
     filterExcludeSelect.value = currentExcludeMode
     filterExcludeSelect.addEventListener('change', () => {
       currentExcludeMode = filterExcludeSelect.value
-      saveFilters(); reload()
+      saveFilters()
     })
   }
 
-  populateTravelSelect()
-  applyHideDuplexUI()
+  // Use shared filter UI functions with reload callback
+  initTravelSelect()
+  initHideDuplexUI()
+  initWorkflowStatusUI()
+  initSuburbsUI()
+
+  // Apply Filters button
+  if (applyFiltersBtn) {
+    applyFiltersBtn.addEventListener('click', () => {
+      reload()
+    })
+  }
 
   if (resetFiltersBtn) {
     resetFiltersBtn.addEventListener('click', () => {
@@ -651,6 +611,8 @@ function initFilterControls() {
       currentSort = 'travel'
       currentExcludeMode = 'none'
       currentTravelMax = '55'
+      currentWorkflowStatuses = ['active']
+      currentSuburbs = []
       currentHideDuplex = true
       currentSearchTerm = ''
       currentRanking = false
@@ -662,9 +624,32 @@ function initFilterControls() {
       if (filterTomYesBtn) setToggleVisual(filterTomYesBtn, false, 'yellow')
       if (filterMqYesBtn) setToggleVisual(filterMqYesBtn, false, 'purple')
       if (hideDuplexBtn) { hideDuplexBtn.setAttribute('aria-pressed', 'true'); setToggleVisual(hideDuplexBtn, true, 'green') }
+      if (filterWorkflowStatusSelect && window.workflowStatusSelect) workflowStatusSelect.setValue(['active'])
+      if (filterSuburbsSelect && window.suburbsSelect) suburbsSelect.setValue([])
       saveFilters(); reload()
     })
   }
+}
+
+// Wrapper functions to use shared filter helpers with map's reload callback
+function initTravelSelect() {
+  populateTravelSelect(filterTravelSelect, () => {})  // Don't reload immediately
+}
+
+function initWorkflowStatusUI() {
+  const selectEl = document.getElementById('filter-workflow-status')
+  if (!selectEl) return
+  workflowStatusSelect = applyWorkflowStatusUI(selectEl, () => {})  // Don't reload immediately
+}
+
+async function initSuburbsUI() {
+  const selectEl = document.getElementById('filter-suburbs')
+  if (!selectEl) return
+  suburbsSelect = await applySuburbsUI(selectEl, () => {})  // Don't reload immediately
+}
+
+function initHideDuplexUI() {
+  applyHideDuplexUI(hideDuplexBtn, () => {})  // Don't reload immediately
 }
 
 function loadGoogleMaps() {

@@ -14,6 +14,7 @@ let filterMqYesBtn = null
 let filterExcludeSelect = null
 let filterTravelSelect = null
 let workflowStatusSelect = null
+let suburbsSelect = null
 let hideDuplexBtn = null
 let searchInput = null
 let filtersToggle = null
@@ -34,6 +35,7 @@ let currentSort = stored.sort || 'travel'
 let currentExcludeMode = stored.exclude_voted_mode || 'none'
 let currentTravelMax = stored.travel_max || '55' // minutes or 'any'
 let currentWorkflowStatuses = stored.workflow_statuses || ['active'] // array of workflow statuses
+let currentSuburbs = stored.suburbs || [] // array of selected suburbs
 let currentHideDuplex = (typeof stored.hide_duplex === 'undefined') ? true : !!stored.hide_duplex
 let currentSearchTerm = stored.search || ''
 // allow ranking toggle alongside travel sort
@@ -97,6 +99,10 @@ async function loadMore() {
     if (currentWorkflowStatuses && currentWorkflowStatuses.length > 0) {
       currentWorkflowStatuses.forEach(status => qs.append('workflow_status', status))
     }
+    // Add suburb filters (array)
+    if (currentSuburbs && currentSuburbs.length > 0) {
+      currentSuburbs.forEach(suburb => qs.append('suburb', suburb))
+    }
     // Add search term to the query string so server can filter
     if (currentSearchTerm) qs.set('search', currentSearchTerm)
     const res = await fetch(`/api/listings?${qs.toString()}`)
@@ -158,6 +164,10 @@ function renderItem(item) {
   if (commutesContainer) window.HF.loadAndRenderCommutes(item.id, commutesContainer, item)
   window.HF.initVoteButtons(wrapper, item)
   if (wrapper.querySelector('.comments-block')) window.HF.initCommentEditor(wrapper, item.id)
+  
+  // Wire up status dropdown
+  initStatusDropdown(wrapper, item)
+  
   const imgs = wrapper.querySelectorAll('img')
   imgs.forEach((img, idx) => {
     img.addEventListener('click', (e) => {
@@ -167,6 +177,85 @@ function renderItem(item) {
       const clickedIndex = images.indexOf(clickedImageSrc) >= 0 ? images.indexOf(clickedImageSrc) : 0
       openImagePopup(clickedImageSrc, images, clickedIndex)
     })
+  })
+}
+
+// Initialize status dropdown for a listing card
+function initStatusDropdown(wrapper, item) {
+  const dropdownWrapper = wrapper.querySelector('.status-dropdown-wrapper')
+  if (!dropdownWrapper) return
+  
+  const statusBtn = dropdownWrapper.querySelector('.status-badge-btn')
+  const dropdown = dropdownWrapper.querySelector('.status-dropdown')
+  if (!statusBtn || !dropdown) return
+  
+  // Toggle dropdown on button click
+  statusBtn.addEventListener('click', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Close all other dropdowns first
+    document.querySelectorAll('.status-dropdown').forEach(d => {
+      if (d !== dropdown) d.classList.add('hidden')
+    })
+    
+    dropdown.classList.toggle('hidden')
+  })
+  
+  // Handle status option clicks
+  const options = dropdown.querySelectorAll('.status-option')
+  options.forEach(option => {
+    option.addEventListener('click', async (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      const newStatus = option.getAttribute('data-status')
+      const currentStatus = statusBtn.getAttribute('data-current-status')
+      
+      if (newStatus === currentStatus) {
+        dropdown.classList.add('hidden')
+        return
+      }
+      
+      // Update status via API
+      try {
+        const res = await fetch(`/api/listing/${item.id}/status`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({workflow_status: newStatus})
+        })
+        const data = await res.json()
+        
+        if (data.ok) {
+          // Update the badge UI
+          const config = window.HF.statusConfig[newStatus]
+          if (config) {
+            statusBtn.className = `status-badge-btn inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${config.color} hover:opacity-80 cursor-pointer`
+            statusBtn.setAttribute('data-current-status', newStatus)
+            statusBtn.innerHTML = `${config.label}
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`
+          }
+          
+          // Update item data
+          item.workflow_status = newStatus
+          
+          // Close dropdown
+          dropdown.classList.add('hidden')
+        } else {
+          alert('Failed to update status: ' + (data.error || 'Unknown error'))
+        }
+      } catch (err) {
+        console.error('Status update failed:', err)
+        alert('Failed to update status')
+      }
+    })
+  })
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!dropdownWrapper.contains(e.target)) {
+      dropdown.classList.add('hidden')
+    }
   })
 }
 
@@ -414,6 +503,48 @@ function applyWorkflowStatusUI(){
   })
 }
 
+// suburbs multi-select handling with TomSelect
+async function applySuburbsUI(){
+  const selectEl = document.getElementById('filter-suburbs')
+  if (!selectEl) return
+  
+  try {
+    // Fetch suburbs list from API
+    const res = await fetch('/api/suburbs')
+    const data = await res.json()
+    
+    if (data.ok && data.suburbs) {
+      // Populate options
+      data.suburbs.forEach(suburb => {
+        const option = document.createElement('option')
+        option.value = suburb
+        option.textContent = suburb
+        selectEl.appendChild(option)
+      })
+      
+      // Initialize TomSelect with pills UI and search
+      suburbsSelect = new TomSelect(selectEl, {
+        plugins: ['remove_button'],
+        maxItems: null, // allow multiple selections
+        closeAfterSelect: false,
+        onChange: function(values) {
+          // Update current filter and reload
+          currentSuburbs = Array.isArray(values) ? values : (values ? [values] : [])
+          saveFilters()
+          resetAndLoad()
+        }
+      })
+      
+      // Set initial values from stored filter
+      if (currentSuburbs && currentSuburbs.length > 0) {
+        suburbsSelect.setValue(currentSuburbs)
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load suburbs:', err)
+  }
+}
+
 // hide-duplex button handling (dropdown-styled toggle)
 function applyHideDuplexUI(){
   if (!hideDuplexBtn) return
@@ -557,7 +688,7 @@ function insertCommentIntoCard(cardEl, comment) {
 }
 
 function saveFilters(){
-  const obj = {status: currentFilter, sort: currentSort, ranking: !!currentRanking, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode, travel_max: currentTravelMax, workflow_statuses: currentWorkflowStatuses, hide_duplex: currentHideDuplex, search: currentSearchTerm}
+  const obj = {status: currentFilter, sort: currentSort, ranking: !!currentRanking, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode, travel_max: currentTravelMax, workflow_statuses: currentWorkflowStatuses, suburbs: currentSuburbs, hide_duplex: currentHideDuplex, search: currentSearchTerm}
   try{ localStorage.setItem('hf_filters', JSON.stringify(obj)) }catch(e){}
 }
 
@@ -730,6 +861,7 @@ document.addEventListener('DOMContentLoaded', () => {
   try { applyStoredToUI() } catch(e) { console.error('applyStoredToUI failed', e) }
   try { populateTravelSelect() } catch(e) { console.error('populateTravelSelect failed', e) }
   try { applyWorkflowStatusUI() } catch(e) { console.error('applyWorkflowStatusUI failed', e) }
+  try { applySuburbsUI() } catch(e) { console.error('applySuburbsUI failed', e) }
   try { applyHideDuplexUI() } catch(e) { console.error('applyHideDuplexUI failed', e) }
   try { initFilterHandlers() } catch(e) { console.error('initFilterHandlers failed', e) }
   // filters panel toggle

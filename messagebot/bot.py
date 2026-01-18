@@ -6,6 +6,8 @@ import logging
 import ssl
 import sys
 import time
+import hashlib
+from pathlib import Path
 import requests
 import paho.mqtt.client as mqtt
 
@@ -65,6 +67,67 @@ class MessageBot:
         self.telegram = TelegramSender(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID)
         self.mqtt_client = None
         self.connected = False
+        self.state_file = Path(config.DATA_DIR) / "messagebot_state.json"
+        self.sent_messages = self.load_state()
+    
+    def load_state(self) -> dict:
+        """Load message state from disk to avoid duplicates"""
+        try:
+            if self.state_file.exists():
+                with open(self.state_file, 'r') as f:
+                    state = json.load(f)
+                    logger.info(f"📂 Loaded message state with {len(state.get('sent_hashes', []))} tracked messages")
+                    return state
+        except Exception as e:
+            logger.warning(f"⚠ Could not load state file: {e}")
+        
+        return {"sent_hashes": [], "last_updated": None}
+    
+    def save_state(self):
+        """Save message state to disk"""
+        try:
+            self.state_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Keep only the last 1000 message hashes to prevent unbounded growth
+            if len(self.sent_messages["sent_hashes"]) > 1000:
+                self.sent_messages["sent_hashes"] = self.sent_messages["sent_hashes"][-1000:]
+            
+            with open(self.state_file, 'w') as f:
+                json.dump(self.sent_messages, f, indent=2)
+            logger.debug(f"💾 Saved message state")
+        except Exception as e:
+            logger.error(f"❌ Failed to save state: {e}")
+    
+    def message_hash(self, payload: dict) -> str:
+        """Generate a unique hash for a message to detect duplicates"""
+        # Create a stable hash based on message content
+        # For new listings: use timestamp + listing IDs
+        # For rejection scanner: use timestamp + summary
+        # For heartbeat: use timestamp + step
+        
+        if "scanner_type" in payload and payload["scanner_type"] == "rejection_scanner":
+            key = f"rejection_{payload.get('timestamp', '')}_{payload.get('summary', {}).get('marked_rejected', 0)}_{payload.get('summary', {}).get('marked_reviewed', 0)}"
+        elif "heartbeat_type" in payload:
+            key = f"heartbeat_{payload.get('timestamp', '')}_{payload.get('last_step_completed', 0)}"
+        else:
+            # New listings message
+            listings = payload.get('listings', [])
+            listing_ids = sorted([str(l.get('id', '')) for l in listings])
+            key = f"listings_{payload.get('timestamp', '')}_{','.join(listing_ids[:10])}"  # Use first 10 IDs
+        
+        return hashlib.md5(key.encode()).hexdigest()
+    
+    def is_duplicate(self, payload: dict) -> bool:
+        """Check if we've already sent this message"""
+        msg_hash = self.message_hash(payload)
+        return msg_hash in self.sent_messages["sent_hashes"]
+    
+    def mark_sent(self, payload: dict):
+        """Mark a message as sent"""
+        msg_hash = self.message_hash(payload)
+        self.sent_messages["sent_hashes"].append(msg_hash)
+        self.sent_messages["last_updated"] = time.time()
+        self.save_state()
     
     def on_connect(self, client, userdata, flags, rc, properties=None):
         """MQTT connection callback"""
@@ -108,17 +171,26 @@ class MessageBot:
             # Parse JSON payload
             payload = json.loads(msg.payload.decode('utf-8'))
             
+            # Check for duplicates
+            if self.is_duplicate(payload):
+                logger.info(f"⏭ Skipping duplicate message")
+                return
+            
             # Check message type and route accordingly
             if "scanner_type" in payload and payload["scanner_type"] == "rejection_scanner":
                 # Handle rejection scanner summary
                 logger.info(f"🔍 Rejection scanner summary received")
                 message = format_rejection_summary(payload)
-                self.telegram.send_message(message)
+                success = self.telegram.send_message(message)
+                if success:
+                    self.mark_sent(payload)
             elif "heartbeat_type" in payload:
                 # Handle heartbeat message
                 logger.info(f"💓 Heartbeat received (step {payload.get('last_step_completed', 0)})")
                 message = format_heartbeat(payload)
-                self.telegram.send_message(message)
+                success = self.telegram.send_message(message)
+                if success:
+                    self.mark_sent(payload)
             else:
                 # Handle new listings message
                 logger.info(f"📊 Payload: {payload.get('count', 0)} new listings")
@@ -127,16 +199,22 @@ class MessageBot:
                 messages = format_listings(payload, config.FRONTEND_URL)
                 
                 # Send each message to Telegram
+                all_success = True
                 for idx, message in enumerate(messages, 1):
                     logger.info(f"📤 Sending Telegram message {idx}/{len(messages)}")
                     success = self.telegram.send_message(message)
                     
                     if not success:
                         logger.error(f"Failed to send message {idx}/{len(messages)}")
+                        all_success = False
                     
                     # Rate limit: wait between messages
                     if idx < len(messages):
                         time.sleep(1)
+                
+                # Only mark as sent if all messages were successful
+                if all_success:
+                    self.mark_sent(payload)
         
         except json.JSONDecodeError as e:
             logger.error(f"❌ Invalid JSON in message: {e}")

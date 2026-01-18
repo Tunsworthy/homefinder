@@ -90,7 +90,27 @@
     return `<div class="existing-comments">${body}</div>` }
 
   // Workflow Status
-  HF.getStatusBadge = function(workflowStatus){ const status = workflowStatus || 'active'; const statusConfig = { 'active': {label: 'Active', color: 'bg-gray-200 text-gray-800'}, 'reviewed': {label: 'Reviewed', color: 'bg-blue-100 text-blue-800'}, 'enquiry_sent': {label: 'Enquiry Sent', color: 'bg-purple-100 text-purple-800'}, 'inspection_planned': {label: 'Inspection Planned', color: 'bg-yellow-100 text-yellow-800'}, 'inspected': {label: 'Inspected', color: 'bg-orange-100 text-orange-800'}, 'thinking': {label: 'Thinking', color: 'bg-indigo-100 text-indigo-800'}, 'offer': {label: 'Offer', color: 'bg-green-100 text-green-800'}, 'rejected': {label: 'Rejected', color: 'bg-red-100 text-red-800'} }; const config = statusConfig[status] || statusConfig['active']; return `<span class="inline-block px-2 py-1 rounded text-xs font-medium ${config.color}">${config.label}</span>` }
+  HF.statusConfig = { 'active': {label: 'Active', color: 'bg-gray-200 text-gray-800'}, 'reviewed': {label: 'Reviewed', color: 'bg-blue-100 text-blue-800'}, 'enquiry_sent': {label: 'Enquiry Sent', color: 'bg-purple-100 text-purple-800'}, 'inspection_planned': {label: 'Inspection Planned', color: 'bg-yellow-100 text-yellow-800'}, 'inspected': {label: 'Inspected', color: 'bg-orange-100 text-orange-800'}, 'thinking': {label: 'Thinking', color: 'bg-indigo-100 text-indigo-800'}, 'offer': {label: 'Offer', color: 'bg-green-100 text-green-800'}, 'rejected': {label: 'Rejected', color: 'bg-red-100 text-red-800'} }
+  
+  HF.getStatusBadge = function(workflowStatus, listingId){ 
+    const status = workflowStatus || 'active'
+    const config = HF.statusConfig[status] || HF.statusConfig['active']
+    return `<div class="relative inline-block status-dropdown-wrapper" data-listing-id="${listingId || ''}">
+      <button class="status-badge-btn inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${config.color} hover:opacity-80 cursor-pointer" data-current-status="${status}">
+        ${config.label}
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+      </button>
+      <div class="status-dropdown absolute right-0 mt-1 w-48 bg-white border rounded shadow-lg z-50 hidden">
+        <div class="py-1">
+          ${Object.entries(HF.statusConfig).map(([key, cfg]) => 
+            `<button class="status-option block w-full text-left px-3 py-2 text-xs hover:bg-gray-100 ${key === status ? 'font-bold' : ''}" data-status="${key}">
+              <span class="inline-block px-2 py-1 rounded ${cfg.color}">${cfg.label}</span>
+            </button>`
+          ).join('')}
+        </div>
+      </div>
+    </div>` 
+  }
 
   HF.initCommentEditor = function(containerEl, listingId){ if(!containerEl) return; // toggle
     const toggle = containerEl.querySelector('.toggle-new-comment'); const area = containerEl.querySelector('.new-comment-area'); const input = containerEl.querySelector('.new-comment-input')
@@ -116,7 +136,7 @@
     const stats = `<div class="flex items-center gap-4 text-sm text-gray-700">${item.bedrooms?`<span>🛏 ${item.bedrooms}</span>`:''}${item.bathrooms?`<span>🛁 ${item.bathrooms}</span>`:''}</div>`
     const nextInsp = HF.getNextInspection(item.inspections)
     const inspectionSection = nextInsp ? `<div class="mt-2 p-2 bg-blue-50 rounded flex items-center justify-between"><div class="text-xs"><div class="font-medium">Next Inspection</div><div>${HF.escapeHtml(nextInsp.day)} ${HF.escapeHtml(nextInsp.time)}</div></div><button class="add-to-plan-btn px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700" data-listing-id="${item.id}" data-day="${HF.escapeHtml(nextInsp.day)}" data-time="${HF.escapeHtml(nextInsp.time)}">Add to Plan</button></div>` : ''
-    const statusBadge = HF.getStatusBadge(item.workflow_status)
+    const statusBadge = HF.getStatusBadge(item.workflow_status, item.id)
     const viewDetailsLink = opts.showLinks ? `<a href="/listing/${item.id}" class="px-2 py-1 rounded text-xs bg-blue-600 text-white hover:bg-blue-700">📋 View details</a>` : ''
     const domainLink = (opts.showDomain && item.url) ? `<a href="${item.url}" target="_blank" class="px-2 py-1 rounded text-xs bg-gray-700 text-white hover:bg-gray-800">🏠 Domain</a>` : ''
     const actionButtons = (viewDetailsLink || domainLink) ? `<div class="mt-2 flex gap-2">${viewDetailsLink}${domainLink}</div>` : ''

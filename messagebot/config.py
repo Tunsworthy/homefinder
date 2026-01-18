@@ -3,6 +3,9 @@ Configuration for messagebot - reads from environment variables
 """
 import os
 
+# Data directory for persistent state
+DATA_DIR = os.getenv("DATA_DIR", "/data")
+
 # MQTT Configuration
 MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "8883"))

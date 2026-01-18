@@ -81,19 +81,29 @@ def process_votes(votes: dict) -> dict:
             stats['left_unchanged'] += 1
             continue
         
-        # Check both true (reviewed)
-        if tom_vote is True and mq_vote is True:
-            vote_data['workflow_status'] = 'reviewed'
-            stats['marked_reviewed'] += 1
-            stats['reviewed_ids'].append(listing_id)
-            logger.debug(f"Marked {listing_id} as reviewed (tom=true, mq=true)")
+        current_status = vote_data.get('workflow_status', 'active')
         
-        # Check both false (rejected)
+        # Check both true (reviewed) - only update if currently 'active' or no status
+        if tom_vote is True and mq_vote is True:
+            if current_status == 'active' or current_status is None:
+                vote_data['workflow_status'] = 'reviewed'
+                stats['marked_reviewed'] += 1
+                stats['reviewed_ids'].append(listing_id)
+                logger.debug(f"Marked {listing_id} as reviewed (tom=true, mq=true)")
+            else:
+                stats['left_unchanged'] += 1
+                logger.debug(f"Skipped {listing_id} - already has status '{current_status}'")
+        
+        # Check both false (rejected) - only update if currently 'active' or no status
         elif tom_vote is False and mq_vote is False:
-            vote_data['workflow_status'] = 'rejected'
-            stats['marked_rejected'] += 1
-            stats['rejected_ids'].append(listing_id)
-            logger.debug(f"Marked {listing_id} as rejected (tom=false, mq=false)")
+            if current_status == 'active' or current_status is None:
+                vote_data['workflow_status'] = 'rejected'
+                stats['marked_rejected'] += 1
+                stats['rejected_ids'].append(listing_id)
+                logger.debug(f"Marked {listing_id} as rejected (tom=false, mq=false)")
+            else:
+                stats['left_unchanged'] += 1
+                logger.debug(f"Skipped {listing_id} - already has status '{current_status}'")
         
         # Mixed votes - leave unchanged
         else:

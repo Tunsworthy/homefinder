@@ -16,6 +16,7 @@ LISTINGS_DIR = DATA_DIR / 'listings'
 LISTING_IDS_FILE = DATA_DIR / 'listing_ids.json'
 VOTES_FILE = DATA_DIR / 'votes.json'
 INSPECTION_PLANS_FILE = DATA_DIR / 'inspection_plans.json'
+SUBURBS_FILE = DATA_DIR / 'suburbs.json'
 
 
 PAGE_SIZE = 20
@@ -322,6 +323,11 @@ def api_listings():
     except Exception:
         pass
 
+    # filter by suburbs (multi-select)
+    suburbs_filter = request.args.getlist('suburb')
+    if suburbs_filter and len(suburbs_filter) > 0:
+        summaries = [s for s in summaries if s.get('suburb') in suburbs_filter]
+
     # filter by search term (case-insensitive, searches in address)
     search_term = request.args.get('search', '').strip()
     if search_term:
@@ -344,6 +350,20 @@ def api_listings():
         'available': available_count,
         'sold': sold_count,
     })
+
+
+@app.route('/api/suburbs')
+def api_suburbs():
+    """Return list of all suburbs for filtering."""
+    try:
+        if SUBURBS_FILE.exists():
+            with SUBURBS_FILE.open('r', encoding='utf8') as f:
+                suburbs = json.load(f)
+                return jsonify({'ok': True, 'suburbs': suburbs})
+        return jsonify({'ok': True, 'suburbs': []})
+    except Exception as e:
+        app.logger.error(f"Error loading suburbs: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 @app.route('/api/listing/<listing_id>')
@@ -454,10 +474,10 @@ def api_update_status(listing_id):
     payload = request.get_json() or {}
     new_status = payload.get('workflow_status')
     
-    # Validate status
-    valid_statuses = ['active', 'reviewed', 'enquiry_sent', 'inspection_planned', 'inspected', 'thinking', 'offer', 'rejected']
-    if new_status not in valid_statuses:
-        return jsonify({'ok': False, 'error': f'Invalid status. Must be one of: {", ".join(valid_statuses)}'}), 400
+    # Validate status against config
+    if new_status not in WORKFLOW_STATUSES:
+        app.logger.error(f"Invalid workflow_status in update: {new_status}")
+        return jsonify({'ok': False, 'error': f'Invalid status. Must be one of: {", ".join(WORKFLOW_STATUSES)}'}), 400
     
     # Load votes file (we'll store status there for now since listings are read-only from backend)
     votes = load_votes()

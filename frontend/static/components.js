@@ -135,7 +135,7 @@
     const price = item.price ? `<div class="text-sm text-gray-800">${HF.escapeHtml(item.price)}</div>` : ''
     const stats = `<div class="flex items-center gap-4 text-sm text-gray-700">${item.bedrooms?`<span>🛏 ${item.bedrooms}</span>`:''}${item.bathrooms?`<span>🛁 ${item.bathrooms}</span>`:''}</div>`
     const nextInsp = HF.getNextInspection(item.inspections)
-    const inspectionSection = nextInsp ? `<div class="mt-2 p-2 bg-blue-50 rounded flex items-center justify-between"><div class="text-xs"><div class="font-medium">Next Inspection</div><div>${HF.escapeHtml(nextInsp.day)} ${HF.escapeHtml(nextInsp.time)}</div></div><button class="add-to-plan-btn px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700" data-listing-id="${item.id}" data-day="${HF.escapeHtml(nextInsp.day)}" data-time="${HF.escapeHtml(nextInsp.time)}">Add to Plan</button></div>` : ''
+    const inspectionSection = nextInsp ? `<div class="mt-2 p-2 bg-blue-50 rounded flex items-center justify-between"><div class="text-xs"><div class="font-medium">Next Inspection</div><div>${HF.escapeHtml(nextInsp.day)} ${HF.escapeHtml(nextInsp.time)}</div></div><button class="add-to-plan-btn px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700" data-listing-id="${item.id}" data-listing-address="${HF.escapeHtml(item.address||'')}" data-listing-suburb="${HF.escapeHtml(item.suburb||'')}" data-day="${HF.escapeHtml(nextInsp.day)}" data-time="${HF.escapeHtml(nextInsp.time)}">Add to Plan</button></div>` : ''
     const statusBadge = HF.getStatusBadge(item.workflow_status, item.id)
     const viewDetailsLink = opts.showLinks ? `<a href="/listing/${item.id}" class="px-2 py-1 rounded text-xs bg-blue-600 text-white hover:bg-blue-700">📋 View details</a>` : ''
     const domainLink = (opts.showDomain && item.url) ? `<a href="${item.url}" target="_blank" class="px-2 py-1 rounded text-xs bg-gray-700 text-white hover:bg-gray-800">🏠 Domain</a>` : ''
@@ -148,10 +148,10 @@
 
   // Add to Plan Modal
   HF.pendingInspection = null
-  HF.showAddToPlanModal = function(listingId, day, time){ HF.pendingInspection = {listingId, day, time}; const timeRange=HF.parseTimeRange(time); let openTime='', closeTime=''; if(timeRange){ openTime=HF.convertTo24Hour(timeRange.start); closeTime=timeRange.end?HF.convertTo24Hour(timeRange.end):'' } const displayEl=document.getElementById('inspection-day-display'); if(displayEl) displayEl.textContent=`${day} ${time}`; const openEl=document.getElementById('inspection-open-time'); if(openEl) openEl.value=openTime; const closeEl=document.getElementById('inspection-close-time'); if(closeEl) closeEl.value=closeTime; document.getElementById('add-inspection-modal').classList.remove('hidden'); HF.loadPlansIntoDropdown() }
+  HF.showAddToPlanModal = function(listingId, day, time, address, suburb){ HF.pendingInspection = {listingId, day, time, address: address||null, suburb: suburb||null}; const timeRange=HF.parseTimeRange(time); let openTime='', closeTime=''; if(timeRange){ openTime=HF.convertTo24Hour(timeRange.start); closeTime=timeRange.end?HF.convertTo24Hour(timeRange.end):'' } const displayEl=document.getElementById('inspection-day-display'); if(displayEl) displayEl.textContent=`${day} ${time}`; const openEl=document.getElementById('inspection-open-time'); if(openEl) openEl.value=openTime; const closeEl=document.getElementById('inspection-close-time'); if(closeEl) closeEl.value=closeTime; document.getElementById('add-inspection-modal').classList.remove('hidden'); HF.loadPlansIntoDropdown() }
   HF.hideAddToPlanModal = function(){ document.getElementById('add-inspection-modal').classList.add('hidden'); HF.pendingInspection=null }
   HF.loadPlansIntoDropdown = async function(){ try{ const res=await fetch('/api/inspection-plans'); const j=await res.json(); const select=document.getElementById('plan-select') || document.getElementById('plan-select-detail'); if(!select) return; select.innerHTML='<option value="">Select existing plan...</option>'; if(j.ok&&j.plans){ Object.values(j.plans).forEach(p=>{ select.innerHTML+=`<option value="${p.id}">${HF.escapeHtml(p.name)} (${p.date||'No date'})</option>` }) } }catch(e){ console.error('load plans failed', e) } };
-  HF.wireAddToPlanButtons = function(){ document.querySelectorAll('.add-to-plan-btn').forEach(btn=>{ if(btn.dataset.wired==='true') return; btn.dataset.wired='true'; btn.addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); const listingId=btn.dataset.listingId; const day=btn.dataset.day; const time=btn.dataset.time; HF.showAddToPlanModal(listingId, day, time) }) }) };
+  HF.wireAddToPlanButtons = function(){ document.querySelectorAll('.add-to-plan-btn').forEach(btn=>{ if(btn.dataset.wired==='true') return; btn.dataset.wired='true'; btn.addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); const listingId=btn.dataset.listingId; const address=btn.dataset.listingAddress; const suburb=btn.dataset.listingSuburb; const day=btn.dataset.day; const time=btn.dataset.time; HF.showAddToPlanModal(listingId, day, time, address, suburb) }) }) };
 
   // Modal actions (list/map views)
   HF.initPlanModal = function(){
@@ -182,11 +182,11 @@
               alert('This listing is already in the selected plan')
               return
             }
-            planToUpdate.stops.push({ listing_id: HF.pendingInspection.listingId, open_time: openTime || null, close_time: closeTime || null })
+            planToUpdate.stops.push({ listing_id: HF.pendingInspection.listingId, open_time: openTime || null, close_time: closeTime || null, cached_address: HF.pendingInspection.address, cached_suburb: HF.pendingInspection.suburb })
             planToUpdate.updated_at = new Date().toISOString()
           } else if (newPlanName) {
             const planId = 'plan_' + Date.now()
-            planToUpdate = { id: planId, name: newPlanName, date: newPlanDate, mode: 'driving', stops: [{ listing_id: HF.pendingInspection.listingId, open_time: openTime || null, close_time: closeTime || null }], updated_at: new Date().toISOString() }
+            planToUpdate = { id: planId, name: newPlanName, date: newPlanDate, mode: 'driving', stops: [{ listing_id: HF.pendingInspection.listingId, open_time: openTime || null, close_time: closeTime || null, cached_address: HF.pendingInspection.address, cached_suburb: HF.pendingInspection.suburb }], updated_at: new Date().toISOString() }
           } else {
             alert('Please select an existing plan or enter a name for a new plan')
             return

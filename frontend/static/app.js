@@ -1157,7 +1157,9 @@ document.getElementById('plan-modal-add')?.addEventListener('click', async () =>
       listing_id: HF.pendingInspection.listingId,
       open_time: openTime,
       close_time: closeTime,
-      override_minutes: null
+      override_minutes: null,
+      cached_address: HF.pendingInspection.address,
+      cached_suburb: HF.pendingInspection.suburb
     })
     
     await fetch('/api/inspection-plans', {

@@ -13,6 +13,7 @@ let filterTomYesBtn = null
 let filterMqYesBtn = null
 let filterExcludeSelect = null
 let filterTravelSelect = null
+let workflowStatusSelect = null
 let hideDuplexBtn = null
 let searchInput = null
 let filtersToggle = null
@@ -32,6 +33,7 @@ let currentFilter = (typeof stored.status === 'undefined') ? 'hide_sold' : store
 let currentSort = stored.sort || 'travel'
 let currentExcludeMode = stored.exclude_voted_mode || 'none'
 let currentTravelMax = stored.travel_max || '55' // minutes or 'any'
+let currentWorkflowStatuses = stored.workflow_statuses || ['active'] // array of workflow statuses
 let currentHideDuplex = (typeof stored.hide_duplex === 'undefined') ? true : !!stored.hide_duplex
 let currentSearchTerm = stored.search || ''
 // allow ranking toggle alongside travel sort
@@ -91,6 +93,10 @@ async function loadMore() {
     const statusParam = (currentFilter === 'hide_sold') ? 'available' : 'all'
     const qs = new URLSearchParams({offset, limit, status: statusParam, sort: currentSort, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode})
     if (currentTravelMax && currentTravelMax !== 'any') qs.set('travel_max', String(currentTravelMax))
+    // Add workflow status filters (array)
+    if (currentWorkflowStatuses && currentWorkflowStatuses.length > 0) {
+      currentWorkflowStatuses.forEach(status => qs.append('workflow_status', status))
+    }
     // Add search term to the query string so server can filter
     if (currentSearchTerm) qs.set('search', currentSearchTerm)
     const res = await fetch(`/api/listings?${qs.toString()}`)
@@ -380,6 +386,34 @@ function populateTravelSelect(){
   })
 }
 
+// workflow status multi-select handling with TomSelect
+function applyWorkflowStatusUI(){
+  const selectEl = document.getElementById('filter-workflow-status')
+  if (!selectEl) return
+  
+  // Initialize TomSelect with pills UI
+  workflowStatusSelect = new TomSelect(selectEl, {
+    plugins: ['remove_button'],
+    maxItems: null, // allow multiple selections
+    closeAfterSelect: true,
+    onInitialize: function() {
+      // Set initial values from stored filter
+      this.setValue(currentWorkflowStatuses)
+    },
+    onChange: function(values) {
+      // Update current filter and reload
+      currentWorkflowStatuses = Array.isArray(values) ? values : (values ? [values] : [])
+      // Ensure at least one status is selected; default to 'active' if empty
+      if (currentWorkflowStatuses.length === 0) {
+        currentWorkflowStatuses = ['active']
+        this.setValue(['active'])
+      }
+      saveFilters()
+      resetAndLoad()
+    }
+  })
+}
+
 // hide-duplex button handling (dropdown-styled toggle)
 function applyHideDuplexUI(){
   if (!hideDuplexBtn) return
@@ -523,7 +557,7 @@ function insertCommentIntoCard(cardEl, comment) {
 }
 
 function saveFilters(){
-  const obj = {status: currentFilter, sort: currentSort, ranking: !!currentRanking, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode, travel_max: currentTravelMax, hide_duplex: currentHideDuplex, search: currentSearchTerm}
+  const obj = {status: currentFilter, sort: currentSort, ranking: !!currentRanking, tom: currentTomFilter, mq: currentMqFilter, exclude_voted_mode: currentExcludeMode, travel_max: currentTravelMax, workflow_statuses: currentWorkflowStatuses, hide_duplex: currentHideDuplex, search: currentSearchTerm}
   try{ localStorage.setItem('hf_filters', JSON.stringify(obj)) }catch(e){}
 }
 
@@ -695,6 +729,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   try { applyStoredToUI() } catch(e) { console.error('applyStoredToUI failed', e) }
   try { populateTravelSelect() } catch(e) { console.error('populateTravelSelect failed', e) }
+  try { applyWorkflowStatusUI() } catch(e) { console.error('applyWorkflowStatusUI failed', e) }
   try { applyHideDuplexUI() } catch(e) { console.error('applyHideDuplexUI failed', e) }
   try { initFilterHandlers() } catch(e) { console.error('initFilterHandlers failed', e) }
   // filters panel toggle

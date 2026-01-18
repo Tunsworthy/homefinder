@@ -6,6 +6,8 @@
     <title>Housefinder — Listings</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
   </head>
   <body class="bg-gray-100 text-gray-900">
     <div id="navbar"></div>
@@ -55,6 +57,20 @@
                   <label for="filter-travel-max" class="block text-xs text-gray-500 mb-1">Max travel</label>
                   <select id="filter-travel-max" class="w-full p-1 border rounded bg-white text-sm">
                     <option value="any">Any</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label for="filter-workflow-status" class="block text-xs text-gray-500 mb-1">Listing Status</label>
+                  <select id="filter-workflow-status" multiple placeholder="Select statuses...">
+                    <option value="active" selected>Active</option>
+                    <option value="reviewed">Reviewed</option>
+                    <option value="enquiry_sent">Enquiry Sent</option>
+                    <option value="inspection_planned">Inspection Planned</option>
+                    <option value="inspected">Inspected</option>
+                    <option value="thinking">Thinking About It</option>
+                    <option value="offer">Offer Made</option>
+                    <option value="rejected">Rejected</option>
                   </select>
                 </div>
 

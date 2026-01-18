@@ -7,6 +7,7 @@ from flask import request
 from urllib.parse import urlencode
 from urllib.request import urlopen
 from datetime import datetime
+from config import WORKFLOW_STATUSES
 
 app = Flask(__name__, static_folder='static')
 
@@ -262,10 +263,26 @@ def api_listings():
     sold_count = sum(1 for s in summaries if str(s.get('status')).lower() == 'sold')
     available_count = total - sold_count
 
-    # Filter out rejected listings by default (unless explicitly included)
-    include_rejected = request.args.get('include_rejected', 'false').lower() == 'true'
-    if not include_rejected:
-        summaries = [s for s in summaries if s.get('workflow_status') != 'rejected']
+    # Filter by workflow status (multi-select, defaults to ['active'])
+    workflow_statuses = request.args.getlist('workflow_status')
+    if not workflow_statuses:
+        workflow_statuses = ['active']
+    
+    # Validate workflow statuses and log errors for invalid ones
+    valid_statuses = []
+    for status in workflow_statuses:
+        if status in WORKFLOW_STATUSES:
+            valid_statuses.append(status)
+        else:
+            app.logger.error(f"Invalid workflow_status received: {status}")
+    
+    # If no valid statuses remain after validation, default to ['active']
+    if not valid_statuses:
+        app.logger.warning("No valid workflow_status values provided, defaulting to ['active']")
+        valid_statuses = ['active']
+    
+    # Apply workflow status filter
+    summaries = [s for s in summaries if s.get('workflow_status') in valid_statuses]
 
     # apply status filter
     if status_filter == 'sold':

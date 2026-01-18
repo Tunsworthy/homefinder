@@ -25,8 +25,18 @@
     const box = document.getElementById('stops')
     box.innerHTML = ''
     currentPlan.stops.forEach((s, idx) => {
-      const listing = allListings.find(l => l.id === s.listing_id)
-      const addr = listing ? `${listing.suburb || 'Unknown'} - ${listing.address}` : s.listing_id || 'Unknown'
+      // Try to find listing in allListings, or use cached data from stop if available
+      let listing = allListings.find(l => String(l.id) === String(s.listing_id))
+      
+      // If listing not found in allListings, try to use cached address/suburb from stop data
+      let displayText = s.listing_id || 'Unknown'
+      if (listing) {
+        displayText = `${listing.suburb || 'Unknown'} - ${listing.address || 'Unknown'}`
+      } else if (s.cached_address && s.cached_suburb) {
+        // Use cached data if listing not in current listings
+        displayText = `${s.cached_suburb} - ${s.cached_address}`
+      }
+      
       const row = document.createElement('div')
       row.className = 'flex items-center gap-2 p-3 bg-gray-50 rounded border cursor-move hover:bg-gray-100'
       row.draggable = true
@@ -34,11 +44,11 @@
       row.innerHTML = `
         <div class="text-gray-400"><i class="fa-solid fa-grip-vertical"></i></div>
         <div class="flex-1">
-          <div class="text-sm font-medium">${addr}</div>
+          <div class="text-sm font-medium">${displayText}</div>
           <div class="flex gap-2 mt-1">
             <input class="border rounded px-2 py-1 text-xs stop-open-time" data-idx="${idx}" type="time" value="${s.open_time||''}" placeholder="Open" title="Property open time">
             <input class="border rounded px-2 py-1 text-xs stop-close-time" data-idx="${idx}" type="time" value="${s.close_time||''}" placeholder="Close" title="Property close time">
-            ${listing ? `<a href="/listing/${listing.id}" target="_blank" class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">📋 Details</a>` : ''}
+            ${listing || s.listing_id ? `<a href="/listing/${listing?.id || s.listing_id}" target="_blank" class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">📋 Details</a>` : ''}
           </div>
         </div>
         <button class="px-2 py-1 text-sm bg-red-100 text-red-700 rounded rm-stop" data-idx="${idx}">✕</button>
@@ -132,7 +142,17 @@
       alert('This listing is already in the plan')
       return
     }
-    currentPlan.stops.push({ listing_id: listingId, override_minutes: null })
+    
+    // Find the listing to cache address and suburb
+    const listing = allListings.find(l => String(l.id) === String(listingId))
+    const stopData = { 
+      listing_id: listingId, 
+      override_minutes: null,
+      cached_address: listing?.address || null,
+      cached_suburb: listing?.suburb || null
+    }
+    
+    currentPlan.stops.push(stopData)
     renderStops()
     hideAddStopModal()
   }

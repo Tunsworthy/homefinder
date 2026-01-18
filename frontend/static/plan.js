@@ -268,7 +268,18 @@
         document.getElementById('save-status').textContent = 'Deleted'
         setTimeout(() => document.getElementById('save-status').textContent = '', 1500)
         renderPlansList()
-        createNewPlan()
+        // Reset to new plan
+        currentPlan = { 
+          id: null, 
+          name: '', 
+          date: new Date().toISOString().split('T')[0], 
+          mode: 'driving', 
+          stops: [] 
+        }
+        document.getElementById('plan-name').value = ''
+        document.getElementById('plan-date').value = currentPlan.date
+        document.getElementById('plan-mode').value = 'driving'
+        renderStops()
       } else {
         alert('Delete failed')
       }

@@ -153,7 +153,7 @@ function renderItem(item) {
   if (wrapper.querySelector('.comments-block')) window.HF.initCommentEditor(wrapper, item.id)
   
   // Wire up status dropdown
-  initStatusDropdown(wrapper, item)
+  window.HF.initStatusDropdown(wrapper, item)
   
   const imgs = wrapper.querySelectorAll('img')
   imgs.forEach((img, idx) => {
@@ -164,85 +164,6 @@ function renderItem(item) {
       const clickedIndex = images.indexOf(clickedImageSrc) >= 0 ? images.indexOf(clickedImageSrc) : 0
       openImagePopup(clickedImageSrc, images, clickedIndex)
     })
-  })
-}
-
-// Initialize status dropdown for a listing card
-function initStatusDropdown(wrapper, item) {
-  const dropdownWrapper = wrapper.querySelector('.status-dropdown-wrapper')
-  if (!dropdownWrapper) return
-  
-  const statusBtn = dropdownWrapper.querySelector('.status-badge-btn')
-  const dropdown = dropdownWrapper.querySelector('.status-dropdown')
-  if (!statusBtn || !dropdown) return
-  
-  // Toggle dropdown on button click
-  statusBtn.addEventListener('click', (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    // Close all other dropdowns first
-    document.querySelectorAll('.status-dropdown').forEach(d => {
-      if (d !== dropdown) d.classList.add('hidden')
-    })
-    
-    dropdown.classList.toggle('hidden')
-  })
-  
-  // Handle status option clicks
-  const options = dropdown.querySelectorAll('.status-option')
-  options.forEach(option => {
-    option.addEventListener('click', async (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      
-      const newStatus = option.getAttribute('data-status')
-      const currentStatus = statusBtn.getAttribute('data-current-status')
-      
-      if (newStatus === currentStatus) {
-        dropdown.classList.add('hidden')
-        return
-      }
-      
-      // Update status via API
-      try {
-        const res = await fetch(`/api/listing/${item.id}/status`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({workflow_status: newStatus})
-        })
-        const data = await res.json()
-        
-        if (data.ok) {
-          // Update the badge UI
-          const config = window.HF.statusConfig[newStatus]
-          if (config) {
-            statusBtn.className = `status-badge-btn inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${config.color} hover:opacity-80 cursor-pointer`
-            statusBtn.setAttribute('data-current-status', newStatus)
-            statusBtn.innerHTML = `${config.label}
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`
-          }
-          
-          // Update item data
-          item.workflow_status = newStatus
-          
-          // Close dropdown
-          dropdown.classList.add('hidden')
-        } else {
-          alert('Failed to update status: ' + (data.error || 'Unknown error'))
-        }
-      } catch (err) {
-        console.error('Status update failed:', err)
-        alert('Failed to update status')
-      }
-    })
-  })
-  
-  // Close dropdown when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!dropdownWrapper.contains(e.target)) {
-      dropdown.classList.add('hidden')
-    }
   })
 }
 

@@ -438,6 +438,7 @@ function renderList(listings) {
     window.HF.wireAddToPlanButtons()
     const cm = el.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)
     window.HF.initVoteButtons(el, item)
+    window.HF.initStatusDropdown(el, item)
     // Attach image click handlers for popup zoom
     const imgs = el.querySelectorAll('img')
     imgs.forEach((img, idx) => {
@@ -464,6 +465,7 @@ function buildInfoNode(item) {
   
   const cm = wrapper.querySelector('.commutes-container'); if (cm) window.HF.loadAndRenderCommutes(item.id, cm, item)
   window.HF.initVoteButtons(wrapper, item)
+  window.HF.initStatusDropdown(wrapper, item)
   // Attach image click handlers for popup zoom
   const imgs = wrapper.querySelectorAll('img')
   imgs.forEach((img, idx) => {

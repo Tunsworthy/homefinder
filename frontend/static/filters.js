@@ -40,7 +40,7 @@ function saveFilters() {
 // ==================== UTILITY FUNCTIONS ====================
 function setToggleVisual(btn, on, color) {
   if (!btn) return
-  btn.classList.remove('bg-green-600','bg-red-600','bg-gray-200','bg-gray-100','bg-blue-600','bg-yellow-100','bg-purple-100','text-white','text-gray-800')
+  btn.classList.remove('bg-green-600','bg-red-600','bg-gray-200','bg-gray-100','bg-blue-600','bg-yellow-600','bg-yellow-100','bg-purple-600','bg-purple-100','bg-indigo-600','text-white','text-gray-800','text-yellow-800','text-purple-800','text-blue-800','text-green-800')
   if (on) {
     let className = 'bg-green-600'
     if (color === 'blue') className = 'bg-blue-600'
@@ -50,7 +50,16 @@ function setToggleVisual(btn, on, color) {
     else if (color === 'indigo') className = 'bg-indigo-600'
     btn.classList.add(className,'text-white')
   } else {
-    btn.classList.add('bg-gray-200','text-gray-800')
+    // For color buttons, use light background when off
+    if (color === 'yellow') {
+      btn.classList.add('bg-yellow-100','text-yellow-800')
+    } else if (color === 'purple') {
+      btn.classList.add('bg-purple-100','text-purple-800')
+    } else if (color === 'blue') {
+      btn.classList.add('bg-blue-100','text-blue-800')
+    } else {
+      btn.classList.add('bg-gray-200','text-gray-800')
+    }
   }
 }
 

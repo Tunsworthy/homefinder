@@ -112,6 +112,89 @@
     </div>` 
   }
 
+  HF.initStatusDropdown = function(wrapper, item) {
+    const dropdownWrapper = wrapper.querySelector('.status-dropdown-wrapper')
+    if (!dropdownWrapper) return
+    
+    const statusBtn = dropdownWrapper.querySelector('.status-badge-btn')
+    const dropdown = dropdownWrapper.querySelector('.status-dropdown')
+    if (!statusBtn || !dropdown) return
+    
+    // Skip if already initialized
+    if (statusBtn.dataset.initialized === 'true') return
+    statusBtn.dataset.initialized = 'true'
+    
+    // Toggle dropdown on button click
+    statusBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      // Close all other dropdowns first
+      document.querySelectorAll('.status-dropdown').forEach(d => {
+        if (d !== dropdown) d.classList.add('hidden')
+      })
+      
+      dropdown.classList.toggle('hidden')
+    })
+    
+    // Handle status option clicks
+    const options = dropdown.querySelectorAll('.status-option')
+    options.forEach(option => {
+      option.addEventListener('click', async (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        
+        const newStatus = option.getAttribute('data-status')
+        const currentStatus = statusBtn.getAttribute('data-current-status')
+        
+        if (newStatus === currentStatus) {
+          dropdown.classList.add('hidden')
+          return
+        }
+        
+        // Update status via API
+        try {
+          const res = await fetch(`/api/listing/${item.id}/status`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({workflow_status: newStatus})
+          })
+          const data = await res.json()
+          
+          if (data.ok) {
+            // Update the badge UI
+            const config = HF.statusConfig[newStatus]
+            if (config) {
+              statusBtn.className = `status-badge-btn inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${config.color} hover:opacity-80 cursor-pointer`
+              statusBtn.setAttribute('data-current-status', newStatus)
+              statusBtn.innerHTML = `${config.label}
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`
+            }
+            
+            // Update item data if provided
+            if (item) item.workflow_status = newStatus
+            
+            // Close dropdown
+            dropdown.classList.add('hidden')
+          } else {
+            alert('Failed to update status: ' + (data.error || 'Unknown error'))
+          }
+        } catch (err) {
+          console.error('Status update failed:', err)
+          alert('Failed to update status')
+        }
+      })
+    })
+    
+    // Close dropdown when clicking outside (using capture phase to ensure it works)
+    const closeHandler = (e) => {
+      if (!dropdownWrapper.contains(e.target)) {
+        dropdown.classList.add('hidden')
+      }
+    }
+    document.addEventListener('click', closeHandler, true)
+  }
+
   HF.initCommentEditor = function(containerEl, listingId){ if(!containerEl) return; // toggle
     const toggle = containerEl.querySelector('.toggle-new-comment'); const area = containerEl.querySelector('.new-comment-area'); const input = containerEl.querySelector('.new-comment-input')
     if(toggle && area){ toggle.addEventListener('click', ()=>{ const vis=area.classList.contains('hidden'); area.classList.toggle('hidden', !vis); toggle.setAttribute('aria-expanded', vis?'true':'false'); if(vis && input) input.focus() }) }

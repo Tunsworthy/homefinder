@@ -8,7 +8,8 @@ let currentFilter = 'hide_sold' // all or hide_sold
 let currentSort = 'travel'
 let currentExcludeMode = 'none'
 let currentTravelMax = '55'
-let currentWorkflowStatuses = ['active']
+// Default map workflow statuses to show on load
+let currentWorkflowStatuses = ['inspection_planned','reviewed','enquiry_sent','inspected']
 let currentSuburbs = []
 let currentHideDuplex = true
 let currentSearchTerm = ''
@@ -24,7 +25,7 @@ function loadStoredFilters() {
   currentSort = stored.sort || 'travel'
   currentExcludeMode = stored.exclude_voted_mode || 'none'
   currentTravelMax = stored.travel_max || '55'
-  currentWorkflowStatuses = stored.workflow_statuses || ['active']
+  currentWorkflowStatuses = stored.workflow_statuses || ['inspection_planned','reviewed','enquiry_sent','inspected']
   currentSuburbs = stored.suburbs || []
   currentHideDuplex = (typeof stored.hide_duplex === 'undefined') ? true : !!stored.hide_duplex
   currentSearchTerm = stored.search || ''
@@ -96,10 +97,10 @@ function applyWorkflowStatusUI(selectEl, onChangeCallback) {
     },
     onChange: function(values) {
       currentWorkflowStatuses = Array.isArray(values) ? values : (values ? [values] : [])
-      // Ensure at least one status is selected; default to 'active' if empty
+      // Ensure at least one status is selected; default to sensible inspection-related statuses if empty
       if (currentWorkflowStatuses.length === 0) {
-        currentWorkflowStatuses = ['active']
-        this.setValue(['active'])
+        currentWorkflowStatuses = ['inspection_planned','reviewed','enquiry_sent','inspected']
+        this.setValue(currentWorkflowStatuses)
       }
       saveFilters()
       if (onChangeCallback) onChangeCallback()

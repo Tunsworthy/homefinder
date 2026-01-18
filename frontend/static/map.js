@@ -415,7 +415,13 @@ document.getElementById('plan-modal-add')?.addEventListener('click', async () =>
 
 function clearMarkers() {
   for (const m of markers) {
-    try { m.setMap(null) } catch (e) {}
+    try {
+      if (typeof m.setMap === 'function') {
+        m.setMap(null)
+      } else if (Object.prototype.hasOwnProperty.call(m, 'map')) {
+        m.map = null
+      }
+    } catch (e) {}
   }
   markers = []
 }
@@ -486,7 +492,8 @@ function renderMarkers(listings) {
   const bounds = new google.maps.LatLngBounds()
   for (const item of listings) {
     if (typeof item.lat !== 'number' || typeof item.lng !== 'number') continue
-    const marker = new google.maps.Marker({position: {lat: item.lat, lng: item.lng}, map, title: item.address || item.id})
+    const position = {lat: item.lat, lng: item.lng}
+    const marker = new google.maps.marker.AdvancedMarkerElement({position, map, title: item.address || item.id})
     marker.addListener('click', () => {
       if (!infoWindow) infoWindow = new google.maps.InfoWindow()
       const node = buildInfoNode(item)
@@ -496,7 +503,7 @@ function renderMarkers(listings) {
       setTimeout(() => { window.HF.setupCarousels() }, 100)
     })
     markers.push(marker)
-    bounds.extend(marker.getPosition())
+    bounds.extend(position)
   }
   if (!markers.length) return
   try { map.fitBounds(bounds) } catch (e) {}
@@ -661,7 +668,7 @@ function loadGoogleMaps() {
     const key = loader ? (loader.dataset.apiKey || '') : ''
     const script = document.createElement('script')
     const cbName = '__hfInitMap'
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=${cbName}&loading=async`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=${cbName}&libraries=marker`
     script.async = true
     script.onerror = () => reject(new Error('Google Maps failed to load'))
     window[cbName] = () => resolve()
@@ -686,13 +693,6 @@ async function boot() {
     streetViewControl: false,
   })
   infoWindow = new google.maps.InfoWindow()
-  
-  // Mark wheel events as passive for better performance
-  const mapContainer = document.getElementById('map')
-  if (mapContainer) {
-    mapContainer.addEventListener('wheel', () => {}, { passive: true })
-  }
-  
   reload()
 }
 

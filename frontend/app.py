@@ -150,7 +150,8 @@ def index():
 @app.route('/map')
 def map_page():
     maps_api_key = os.environ.get('MAPS_API_KEY', '')
-    return render_template('map.html', maps_api_key=maps_api_key)
+    maps_map_id = os.environ.get('MAPS_MAP_ID', '')
+    return render_template('map.html', maps_api_key=maps_api_key, maps_map_id=maps_map_id)
 
 
 @app.route('/plan')

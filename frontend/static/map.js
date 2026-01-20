@@ -670,23 +670,25 @@ function initHideDuplexUI() {
 
 function loadGoogleMaps() {
   return new Promise((resolve, reject) => {
-    if (window.google && window.google.maps) return resolve()
     const loader = document.getElementById('gmaps-loader')
+    const mapId = loader ? (loader.dataset.mapId || '') : ''
+    if (window.google && window.google.maps) return resolve(mapId)
     const key = loader ? (loader.dataset.apiKey || '') : ''
     const script = document.createElement('script')
     const cbName = '__hfInitMap'
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=${cbName}&libraries=marker`
     script.async = true
     script.onerror = () => reject(new Error('Google Maps failed to load'))
-    window[cbName] = () => resolve()
+    window[cbName] = () => resolve(mapId)
     document.head.appendChild(script)
   })
 }
 
 async function boot() {
   initFilterControls()
+  let mapId = ''
   try {
-    await loadGoogleMaps()
+    mapId = await loadGoogleMaps()
   } catch (e) {
     const mapEl = document.getElementById('map')
     if (mapEl) mapEl.innerHTML = '<div class="p-4 text-sm text-red-600">Google Maps failed to load. Set MAPS_API_KEY env var and reload.</div>'
@@ -698,6 +700,7 @@ async function boot() {
     zoom: 11,
     mapTypeControl: false,
     streetViewControl: false,
+    mapId: mapId
   })
   infoWindow = new google.maps.InfoWindow()
   reload()

@@ -47,6 +47,14 @@ def save_votes(votes: dict):
         pass
 
 
+def load_listing_ids():
+    try:
+        with LISTING_IDS_FILE.open('r', encoding='utf8') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
 def load_plans():
     try:
         with INSPECTION_PLANS_FILE.open('r', encoding='utf8') as f:
@@ -182,6 +190,8 @@ def api_listings():
         return jsonify({'listings': [], 'offset': offset, 'limit': limit, 'total': 0, 'available': 0, 'sold': 0})
 
     files = sorted([p for p in LISTINGS_DIR.iterdir() if p.suffix.lower() == '.json'])
+    # load listing_ids metadata (contains added_date)
+    listing_ids = load_listing_ids()
     for p in files:
         data = load_listing_json(p)
         if not data:
@@ -238,6 +248,7 @@ def api_listings():
             'bedrooms': data.get('bedrooms'),
             'bathrooms': data.get('bathrooms'),
             'price': data.get('price'),
+            'added_date': (listing_ids.get(str(data.get('id') or p.stem)) or {}).get('added_date'),
             'travel_duration_text': data.get('travel_duration_text'),
             'travel_duration_seconds': data.get('travel_duration_seconds'),
             'status': data.get('status') or 'unknown',
@@ -419,6 +430,12 @@ def api_listing(listing_id):
     # include full comments list sorted newest first
     comments = v.get('comments', []) if isinstance(v, dict) else []
     data['comments'] = sorted(comments, key=lambda c: c.get('ts', 0), reverse=True)
+    # attach added_date from listing_ids if available
+    try:
+        listing_ids = load_listing_ids()
+        data['added_date'] = (listing_ids.get(str(data.get('id') or path.stem)) or {}).get('added_date')
+    except Exception:
+        data['added_date'] = None
     return jsonify(data)
 
 
